@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find docs -name \"*.md\" -exec wc -l {} ;)",
+      "Bash(sort -t: -k2 -n)"
+    ]
+  }
+}

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>인벤토리 관리 - Trashpit</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/grid.css">
+    <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+    <div class="container">
+        <!-- 헤더 -->
+        <header class="header">
+            <h1>인벤토리 관리</h1>
+            <div class="user-info">
+                <span id="character-name">-</span>
+                <span id="character-strength">(근력: -)</span>
+            </div>
+        </header>
+
+        <div class="main-layout">
+            <!-- 사이드바: 캐릭터 목록 -->
+            <aside class="sidebar">
+                <h2>캐릭터</h2>
+                <ul id="character-list">
+                    <!-- 동적 생성 -->
+                </ul>
+                <button id="refresh-btn" class="btn">새로고침</button>
+            </aside>
+
+            <!-- 메인 콘텐츠 -->
+            <main class="content">
+                <!-- 탭 -->
+                <nav class="tabs">
+                    <button class="tab active" data-tab="bag">가방</button>
+                    <button class="tab" data-tab="misc">여유공간</button>
+                    <button class="tab" data-tab="nearby">주변</button>
+                </nav>
+
+                <!-- 용량 표시 -->
+                <div id="capacity-bar" class="capacity-bar">
+                    <div class="capacity-fill"></div>
+                    <span class="capacity-text">0 / 0</span>
+                </div>
+
+                <!-- 탭 콘텐츠 -->
+                <div id="tab-content" class="tab-content">
+                    <!-- 동적 생성 -->
+                </div>
+
+                <!-- 액션 버튼 -->
+                <div class="actions">
+                    <button id="auto-arrange-btn" class="btn">자동 정리</button>
+                    <button id="save-btn" class="btn primary">저장</button>
+                    <button id="cancel-btn" class="btn">취소</button>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/inventory.js"></script>
+    <script src="js/dragdrop.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,223 @@
+/* 공용 컴포넌트 스타일 */
+
+/* 버튼 */
+.btn {
+    padding: 10px 20px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    background: #fff;
+    transition: all 0.2s;
+}
+
+.btn:hover {
+    background: #f5f5f5;
+}
+
+.btn:active {
+    transform: scale(0.98);
+}
+
+.btn.primary {
+    background: #2196f3;
+    color: #fff;
+    border-color: #2196f3;
+}
+
+.btn.primary:hover {
+    background: #1976d2;
+}
+
+.btn.danger {
+    background: #f44336;
+    color: #fff;
+    border-color: #f44336;
+}
+
+.btn.danger:hover {
+    background: #d32f2f;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* 로딩 */
+.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #e0e0e0;
+    border-top-color: #2196f3;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* 알림 토스트 */
+.toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.toast {
+    padding: 12px 20px;
+    background: #333;
+    color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    animation: slideIn 0.3s ease;
+    max-width: 300px;
+}
+
+.toast.success {
+    background: #4caf50;
+}
+
+.toast.error {
+    background: #f44336;
+}
+
+.toast.warning {
+    background: #ff9800;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* 모달 */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s;
+}
+
+.modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.modal {
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 400px;
+    width: 90%;
+    transform: scale(0.9);
+    transition: transform 0.3s;
+}
+
+.modal-overlay.active .modal {
+    transform: scale(1);
+}
+
+.modal-header {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 15px;
+}
+
+.modal-body {
+    margin-bottom: 20px;
+    color: #666;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+/* 툴팁 */
+[data-tooltip] {
+    position: relative;
+}
+
+[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 6px 10px;
+    background: #333;
+    color: #fff;
+    font-size: 0.8rem;
+    border-radius: 4px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s;
+    pointer-events: none;
+}
+
+[data-tooltip]:hover::after {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* 배지 */
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    border-radius: 10px;
+    background: #e0e0e0;
+    color: #333;
+}
+
+.badge.primary {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.badge.success {
+    background: #e8f5e9;
+    color: #388e3c;
+}
+
+.badge.warning {
+    background: #fff3e0;
+    color: #f57c00;
+}
+
+.badge.danger {
+    background: #ffebee;
+    color: #d32f2f;
+}
