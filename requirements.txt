@@ -1,0 +1,14 @@
+# Trashpit - 마스토돈 TRPG 인벤토리 관리 시스템
+# 전체 Python 의존성 (bot + api + scripts)
+
+# 공통
+python-dotenv>=1.0.0
+gspread>=5.12.0
+google-auth>=2.23.0
+
+# 봇
+Mastodon.py>=1.8.0
+
+# API
+Flask>=3.0.0
+flask-cors>=4.0.0
