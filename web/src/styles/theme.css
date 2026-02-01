@@ -1,0 +1,223 @@
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --font-size: 16px;
+  
+  /* ===== CORE COLORS (6가지) ===== */
+  /* 1. Primary - Neon Cyan (메인 액센트, 선택, 링크) */
+  --color-primary: #00F3FF;
+  --color-primary-rgb: 0, 243, 255;
+  
+  /* 2. Secondary - Electric Purple (보조 액센트, 스탯) */
+  --color-secondary: #BF5AF2;
+  --color-secondary-rgb: 191, 90, 242;
+  
+  /* 3. Success - Green (정상 상태, 동기화) */
+  --color-success: #00FF88;
+  --color-success-rgb: 0, 255, 136;
+  
+  /* 4. Warning - Amber (경고, 중간 상태) */
+  --color-warning: #FFB020;
+  --color-warning-rgb: 255, 176, 32;
+  
+  /* 5. Danger - Red (위험, HP, 에러) */
+  --color-danger: #FF4757;
+  --color-danger-rgb: 255, 71, 87;
+  
+  /* 6. Neutral - Gray (배경, 텍스트, 보더) */
+  --color-bg-base: #0B0E14;
+  --color-bg-raised: #1C2128;
+  --color-bg-overlay: #2A2F3A;
+  --color-text-primary: #E8EAED;
+  --color-text-secondary: #8B92A0;
+  --color-border: rgba(255, 255, 255, 0.1);
+  
+  /* ===== SEMANTIC TOKENS ===== */
+  --background: var(--color-bg-base);
+  --foreground: var(--color-text-primary);
+  --card: var(--color-bg-raised);
+  --card-foreground: var(--color-text-primary);
+  --popover: var(--color-bg-raised);
+  --popover-foreground: var(--color-text-primary);
+  --primary: var(--color-primary);
+  --primary-foreground: #000000;
+  --secondary: var(--color-secondary);
+  --secondary-foreground: #FFFFFF;
+  --muted: var(--color-bg-overlay);
+  --muted-foreground: var(--color-text-secondary);
+  --accent: var(--color-primary);
+  --accent-foreground: #000000;
+  --destructive: var(--color-danger);
+  --destructive-foreground: #ffffff;
+  --border: var(--color-border);
+  --input: transparent;
+  --input-background: rgba(28, 33, 40, 0.5);
+  --switch-background: var(--color-bg-overlay);
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: var(--color-primary);
+  --chart-1: var(--color-primary);
+  --chart-2: var(--color-secondary);
+  --chart-3: var(--color-danger);
+  --chart-4: var(--color-success);
+  --chart-5: var(--color-warning);
+  --radius: 0.5rem;
+  --sidebar: var(--color-bg-raised);
+  --sidebar-foreground: var(--color-text-primary);
+  --sidebar-primary: var(--color-primary);
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: var(--color-bg-base);
+  --sidebar-accent-foreground: var(--color-text-primary);
+  --sidebar-border: var(--color-border);
+  --sidebar-ring: var(--color-primary);
+}
+
+.dark {
+  --background: var(--color-bg-base);
+  --foreground: var(--color-text-primary);
+  --card: var(--color-bg-raised);
+  --card-foreground: var(--color-text-primary);
+  --popover: var(--color-bg-raised);
+  --popover-foreground: var(--color-text-primary);
+  --primary: var(--color-primary);
+  --primary-foreground: #000000;
+  --secondary: var(--color-secondary);
+  --secondary-foreground: #FFFFFF;
+  --muted: var(--color-bg-overlay);
+  --muted-foreground: var(--color-text-secondary);
+  --accent: var(--color-primary);
+  --accent-foreground: #000000;
+  --destructive: var(--color-danger);
+  --destructive-foreground: #FFFFFF;
+  --border: var(--color-border);
+  --input: rgba(28, 33, 40, 0.5);
+  --ring: var(--color-primary);
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --chart-1: var(--color-primary);
+  --chart-2: var(--color-secondary);
+  --chart-3: var(--color-danger);
+  --chart-4: var(--color-success);
+  --chart-5: var(--color-warning);
+  --sidebar: var(--color-bg-raised);
+  --sidebar-foreground: var(--color-text-primary);
+  --sidebar-primary: var(--color-primary);
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: var(--color-bg-base);
+  --sidebar-accent-foreground: var(--color-text-primary);
+  --sidebar-border: var(--color-border);
+  --sidebar-ring: var(--color-primary);
+}
+
+@theme inline {
+  /* Semantic tokens */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  
+  /* Core 6 colors - 간단하게 사용하기 위한 별칭 */
+  --color-cyan: var(--color-primary);
+  --color-purple: var(--color-secondary);
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-danger: var(--color-danger);
+  
+  /* Background variations */
+  --color-bg-base: var(--color-bg-base);
+  --color-bg-raised: var(--color-bg-raised);
+  --color-bg-overlay: var(--color-bg-overlay);
+  
+  /* Text variations */
+  --color-text-primary: var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  
+  /* Charts */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  
+  /* Radius */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /**
+  * Default typography styles for HTML elements (h1-h4, p, label, button, input).
+  * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.
+  */
+
+  html {
+    font-size: var(--font-size);
+  }
+
+  h1 {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h2 {
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h3 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h4 {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  label {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  button {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  input {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-normal);
+    line-height: 1.5;
+  }
+}
