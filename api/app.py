@@ -9,7 +9,7 @@ from flask import Flask
 from flask_cors import CORS
 
 from api.config import DEBUG, HOST, PORT, CORS_ORIGINS
-from api.routes import character, bag, nearby, items
+from api.routes import character, bag, nearby, items, admin
 
 app = Flask(__name__)
 CORS(app, origins=CORS_ORIGINS)
@@ -19,6 +19,7 @@ app.register_blueprint(character.bp)
 app.register_blueprint(bag.bp)
 app.register_blueprint(nearby.bp)
 app.register_blueprint(items.bp)
+app.register_blueprint(admin.bp)
 
 
 @app.route("/")
