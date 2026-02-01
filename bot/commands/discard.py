@@ -1,10 +1,9 @@
 """[버리기/아이템명] 명령어 핸들러"""
 
 import sys
-import os
+from pathlib import Path
 
-# 상위 디렉토리 import
-sys.path.insert(0, str(__file__).rsplit("/", 3)[0])
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from bot.services.character_service import get_character_by_mastodon_id
 from bot.services.inventory_service import remove_item, find_item_location

@@ -14,10 +14,10 @@ import sys
 import argparse
 import signal
 import time
+from pathlib import Path
 
-# 상위 디렉토리 import를 위한 경로 추가
-sys.path.insert(0, str(__file__).rsplit("\\", 2)[0])
-sys.path.insert(0, str(__file__).rsplit("/", 2)[0])
+# 상위 디렉토리 import를 위한 경로 추가 (프로젝트 루트)
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from dotenv import load_dotenv
 
@@ -86,11 +86,13 @@ def on_notification(notification: dict):
     cmd_type, args = result
     logger.command_received(user, cmd_type, args)
 
-    # 핸들러 실행
+    # 핸들러 실행 (반환값이 있으면 reply로 전송)
     handler = HANDLERS.get(cmd_type)
     if handler:
         try:
-            handler(status_id, user, args)
+            result = handler(status_id, user, args)
+            if result is not None:
+                reply(status_id, result)
         except Exception as e:
             logger.command_error(user, cmd_type, str(e))
             reply(status_id, f"@{user} 오류가 발생했습니다: {e}")

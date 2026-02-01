@@ -1,14 +1,13 @@
 """[획득/아이템명] 명령어 핸들러"""
 
 import sys
-import os
+from pathlib import Path
 
-# 상위 디렉토리 import
-sys.path.insert(0, str(__file__).rsplit("/", 3)[0])
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from bot.services.character_service import get_character_by_mastodon_id
 from bot.services.item_service import get_item_info
-from bot.services.inventory_service import add_item
+from bot.services.inventory_service import add_item, get_available_space
 
 def handle(status_id: str, user: str, args: list) -> str:
     """
@@ -40,11 +39,17 @@ def handle(status_id: str, user: str, args: list) -> str:
     target_location = 'misc' if volume == 0 else 'nearby'
     
     if add_item(char_name, item_name, 1, target_location):
+        available = get_available_space(char_name)
         if volume == 0:
-            return (f"@{user} {item_name}을(를) 획득했습니다! (부피 0)\n"
-                    f"자동으로 여유공간에 보관되었습니다.")
-        else:
-            return (f"@{user} {item_name}을(를) 획득했습니다! (부피: {volume})\n"
-                    f"주변에 임시 보관됩니다.")
+            return (
+                f"@{user} {item_name}을(를) 획득했습니다! (부피 0)\n"
+                f"자동으로 여유공간에 보관되었습니다.\n"
+                f"가방 남은 공간: {available}칸"
+            )
+        return (
+            f"@{user} {item_name}을(를) 획득했습니다! (부피: {volume})\n"
+            f"가방 남은 공간: {available}칸\n"
+            f"웹에서 가방에 넣으세요."
+        )
     else:
         return f"@{user} '{item_name}' 획득 처리에 실패했습니다. (시스템 오류)"

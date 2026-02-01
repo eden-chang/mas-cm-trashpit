@@ -1,14 +1,28 @@
 """[사용/아이템명] 명령어 핸들러"""
 
 import sys
-import os
+from pathlib import Path
+from typing import Optional
 
-# 상위 디렉토리 import
-sys.path.insert(0, str(__file__).rsplit("/", 3)[0])
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from shared.constants import ManagementColumns
 from bot.services.character_service import get_character_by_mastodon_id
 from bot.services.item_service import get_item_info
-from bot.services.inventory_service import remove_item, find_item_location, get_item_count
+from bot.services.inventory_service import (
+    remove_item,
+    find_item_location,
+    get_item_count,
+    update_stat,
+)
+from bot.utils.dice import roll_dice
+
+# 아이템 스탯명 -> 관리 시트 컬럼 인덱스
+_STAT_COLUMN = {
+    "체력": ManagementColumns.HEALTH,
+    "근력": ManagementColumns.STRENGTH,
+    "행운": ManagementColumns.LUCK,
+}
 
 def handle(status_id: str, user: str, args: list) -> str:
     """아이템 사용 처리"""
@@ -34,12 +48,22 @@ def handle(status_id: str, user: str, args: list) -> str:
     if not item_info:
         return f"@{user} '{item_name}' 정보를 찾을 수 없습니다."
 
-    # 4. 사용 (차감)
-    # TODO: 효과 적용 로직은 아직 구현 안 됨 (Phase 2 범위 밖일 수도 있음, 일단 차감만)
+    # 4. 사용 (차감 후 효과 적용, 다이스 표현식 지원)
     if remove_item(char_name, item_name, 1, location):
+        applied_delta: Optional[int] = None
+        stat_col = _STAT_COLUMN.get((item_info.get("stat") or "").strip())
+        value_raw = item_info.get("value")
+        if stat_col is not None and value_raw not in (None, ""):
+            delta = roll_dice(str(value_raw).strip())
+            if delta != 0:
+                update_stat(char_name, stat_col, delta)
+                applied_delta = delta
         remaining = get_item_count(char_name, item_name)
-        effect_msg = item_info['use_msg'] or f"효과: {item_info['stat']} {item_info['value']}"
-        
+        stat_name = (item_info.get("stat") or "").strip()
+        if applied_delta is not None and stat_name:
+            effect_msg = item_info.get("use_msg") or f"효과: {stat_name} {applied_delta:+d}"
+        else:
+            effect_msg = item_info.get("use_msg") or f"효과: {stat_name} {item_info.get('value', '')}"
         msg = f"@{user} {item_name}을(를) 사용했습니다!\n{effect_msg}"
         if remaining > 0:
             msg += f"\n(남은 수량: {remaining})"

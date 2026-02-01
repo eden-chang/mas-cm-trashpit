@@ -16,9 +16,27 @@ class ManagementColumns(IntEnum):
     HEALTH = 3      # 체력 (D열)
     STRENGTH = 4    # 근력 (E열)
     LUCK = 5        # 행운 (F열)
-    BAG = 6         # 가방 (G열)
-    MISC = 7        # 여유공간 (H열)
-    NEARBY = 8      # 주변 (I열)
+    MONEY = 6       # 소지금 (G열) - 포인트
+    BAG = 7         # 가방 (H열)
+    MISC = 8        # 여유공간 (I열)
+    NEARBY = 9      # 주변 (J열)
+
+def get_bag_capacity(strength: int) -> int:
+    """근력 기반 가방 용량 (문서 1.3). 1~5: 20, 6~10: 40, 11~15: 60, 16~20: 80."""
+    try:
+        s = int(strength)
+        if 1 <= s <= 5:
+            return 20
+        if 6 <= s <= 10:
+            return 40
+        if 11 <= s <= 15:
+            return 60
+        if 16 <= s <= 20:
+            return 80
+    except (TypeError, ValueError):
+        pass
+    return 20
+
 
 # '상점' 시트 컬럼 인덱스
 class ShopColumns(IntEnum):
