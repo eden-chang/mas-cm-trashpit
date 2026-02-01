@@ -2,6 +2,55 @@
  * UI 렌더링 및 이벤트 처리
  */
 
+const BAG_COLUMNS = 10;
+const BAG_CELL_SIZE_PX = 40;
+
+/**
+ * 용량에 따른 그리드 행 수 (Phase 0: 20/40/60)
+ */
+function getBagRows(capacity) {
+    if (capacity <= 20) return 2;
+    if (capacity <= 40) return 4;
+    return 6;
+}
+
+/**
+ * 아이템 목록을 그리드 셀 단위로 패킹 (row-major).
+ * @returns {Array<Array<{name: string, volume: number, quantity: number, isFirst: boolean} | null>>}
+ */
+function packItemsIntoGrid(bagItems, cols, rows) {
+    const grid = Array.from({ length: rows }, () => Array(cols).fill(null));
+    let row = 0;
+    let col = 0;
+
+    for (const item of bagItems) {
+        const cellsNeeded = (item.volume || 0) * (item.quantity || 1);
+        if (cellsNeeded <= 0) continue;
+
+        let placed = 0;
+        let isFirst = true;
+
+        while (placed < cellsNeeded && row < rows) {
+            if (col >= cols) {
+                col = 0;
+                row++;
+                continue;
+            }
+            grid[row][col] = {
+                name: item.name,
+                volume: item.volume,
+                quantity: item.quantity,
+                isFirst,
+            };
+            placed++;
+            isFirst = false;
+            col++;
+        }
+    }
+
+    return grid;
+}
+
 const UI = {
     currentTab: 'bag',
 
@@ -143,7 +192,7 @@ const UI = {
     },
 
     /**
-     * 가방 탭 렌더링
+     * 가방 탭 렌더링 (테트리스 스타일: 아이템 부피만큼 셀 점유)
      */
     renderBag() {
         const content = document.getElementById('tab-content');
@@ -156,37 +205,69 @@ const UI = {
 
         this.updateCapacityBar(char.bag_used, char.bag_capacity);
 
-        if (char.bag_items.length === 0) {
-            content.innerHTML = `
-                <div class="inventory-grid" data-drop-zone="bag">
-                    <div class="empty-state">
-                        <div class="empty-state-icon">🎒</div>
-                        <div class="empty-state-text">가방이 비어있습니다</div>
-                    </div>
-                </div>
-            `;
-            return;
-        }
+        const rows = getBagRows(char.bag_capacity);
+        const packed = packItemsIntoGrid(char.bag_items, BAG_COLUMNS, rows);
 
         content.innerHTML = `
-            <div class="inventory-grid" data-drop-zone="bag">
-                ${char.bag_items.map(item => `
-                    <div class="grid-slot occupied"
-                         data-draggable
-                         data-source="bag"
-                         data-item-name="${item.name}"
-                         data-quantity="${item.quantity}"
-                         data-volume="${item.volume}"
-                         draggable="true">
-                        <div class="item">
-                            <div class="item-name">${item.name}</div>
-                        </div>
-                        ${item.volume > 0 ? `<span class="item-volume">${item.volume}</span>` : ''}
-                        ${item.quantity > 1 ? `<span class="item-quantity">${item.quantity}</span>` : ''}
-                    </div>
-                `).join('')}
+            <div class="bag-tab-content">
+                <div class="bag-header">
+                    <h3 class="bag-title">가방</h3>
+                    <span class="bag-capacity-text">${char.bag_used} / ${char.bag_capacity}</span>
+                </div>
+                <div class="inventory-grid inventory-grid-cells" data-drop-zone="bag"
+                     style="grid-template-columns: repeat(${BAG_COLUMNS}, ${BAG_CELL_SIZE_PX}px); grid-template-rows: repeat(${rows}, ${BAG_CELL_SIZE_PX}px);">
+                </div>
+                <div class="bag-item-list">
+                    <h4 class="bag-item-list-title">보유 아이템</h4>
+                    <ul class="bag-items">
+                        ${char.bag_items.map(item => `
+                            <li class="bag-item-entry">
+                                <span>${item.name} x${item.quantity}</span>
+                                <span class="item-volume">부피: ${(item.volume || 0) * (item.quantity || 1)}</span>
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
             </div>
         `;
+
+        this._injectGridCells(content, packed, rows);
+    },
+
+    /**
+     * 패킹 결과로 그리드 셀 DOM 생성 후 주입 (innerHTML로 data- 속성 이스케이프 대응)
+     */
+    _injectGridCells(container, packed, rows) {
+        const grid = container.querySelector('.inventory-grid-cells');
+        if (!grid) return;
+
+        grid.innerHTML = '';
+
+        for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < BAG_COLUMNS; col++) {
+                const cell = packed[row][col];
+                const div = document.createElement('div');
+                div.className = 'grid-cell';
+                div.dataset.row = String(row);
+                div.dataset.col = String(col);
+
+                if (cell) {
+                    div.classList.add('occupied');
+                    div.setAttribute('data-draggable', '');
+                    div.dataset.source = 'bag';
+                    div.dataset.itemName = cell.name;
+                    div.dataset.quantity = String(cell.quantity);
+                    div.dataset.volume = String(cell.volume);
+                    div.title = `${cell.name} (부피 ${cell.volume}×${cell.quantity})`;
+                    div.draggable = true;
+                    div.textContent = cell.isFirst ? cell.name.charAt(0) : '';
+                } else {
+                    div.dataset.dropZone = 'bag';
+                }
+
+                grid.appendChild(div);
+            }
+        }
     },
 
     /**

@@ -12,3 +12,6 @@ Mastodon.py>=1.8.0
 # API
 Flask>=3.0.0
 flask-cors>=4.0.0
+
+# 테스트
+pytest>=8.0.0

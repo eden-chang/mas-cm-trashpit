@@ -17,10 +17,14 @@ def get_bag(name: str):
     if not char:
         return jsonify({"error": "캐릭터를 찾을 수 없습니다."}), 404
 
+    bag_items_dict = [{"name": i.name, "quantity": i.quantity} for i in char.bag_items]
+    used = calculate_total_volume(bag_items_dict)
+    available = char.bag_capacity - used
+
     return jsonify({
         "capacity": char.bag_capacity,
-        "used": char.bag_used,
-        "available": char.bag_available,
+        "used": used,
+        "available": available,
         "items": enrich_items(char.bag_items),
     })
 

@@ -1,7 +1,7 @@
 """데이터 모델 정의"""
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Union
 
 
 @dataclass
@@ -18,13 +18,13 @@ class Item:
 
 @dataclass
 class ItemInfo:
-    """아이템 마스터 정보 (상점 시트)"""
+    """아이템 마스터 정보 (상점 시트, 문서 1.2)"""
     name: str
-    price: int = 0
+    price: Union[int, str] = 0  # 정수 또는 '비매품'
     description: str = ""
     use_message: str = ""
     stat: str = ""
-    value: int = 0
+    value: str = ""  # 정수 또는 다이스 표기 (예: '10', '1d6', '-(1d6+3)')
     volume: int = 0
 
 
@@ -33,6 +33,7 @@ class Character:
     """캐릭터 정보"""
     name: str
     mastodon_id: str
+    faction: str = ""  # 진영 (웨가/스카이)
     health: int = 0
     strength: int = 1
     luck: int = 0

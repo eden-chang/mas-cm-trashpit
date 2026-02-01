@@ -23,6 +23,8 @@ wheels/
 .installed.cfg
 *.egg
 
+.claude/
+
 # 가상환경
 .venv/
 venv/

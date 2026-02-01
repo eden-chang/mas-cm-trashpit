@@ -7,11 +7,12 @@ SHEET_ID = "1JrUVHRj7fKpvX-cP98J13Asx6h-FEydAPCm0q7l1exk"
 WORKSHEET_MANAGEMENT = "관리"
 WORKSHEET_SHOP = "상점"
 
-# 근력에 따른 가방 용량
+# 근력에 따른 가방 용량 (문서 1.3)
 CAPACITY_RULES = {
     (1, 5): 20,
     (6, 10): 40,
     (11, 15): 60,
+    (16, 20): 80,
 }
 
 def get_bag_capacity(strength: int) -> int:
@@ -22,16 +23,23 @@ def get_bag_capacity(strength: int) -> int:
     return 20  # 기본값
 
 
+# 진영 정보 (Phase 1.1)
+FACTION_WEGA = "웨가"
+FACTION_SKY = "스카이"
+
+
 # 시트 컬럼 인덱스 (0부터 시작)
+# 순서: 이름, 아이디, 진영, 체력, 근력, 행운, 가방, 여유공간, 주변
 class ManagementColumns:
     NAME = 0        # 이름
     MASTODON_ID = 1 # 아이디
-    HEALTH = 2      # 체력
-    STRENGTH = 3    # 근력
-    LUCK = 4        # 행운
-    BAG = 5         # 가방
-    MISC = 6        # 여유공간
-    NEARBY = 7      # 주변
+    FACTION = 2     # 진영 (웨가/스카이)
+    HEALTH = 3      # 체력
+    STRENGTH = 4    # 근력
+    LUCK = 5        # 행운
+    BAG = 6         # 가방
+    MISC = 7        # 여유공간
+    NEARBY = 8      # 주변
 
 
 class ShopColumns:

@@ -3,9 +3,9 @@
 from typing import Optional
 
 from shared.google_sheets import get_worksheet
-from shared.constants import WORKSHEET_MANAGEMENT
-from shared.models import Character, Item
-from api.utils.parser import parse_inventory, serialize_inventory
+from shared.constants import WORKSHEET_MANAGEMENT, ManagementColumns
+from shared.models import Character
+from shared.parser import parse_inventory, serialize_inventory
 
 
 def get_all_characters() -> list[Character]:
@@ -27,7 +27,7 @@ def get_character_by_name(name: str) -> Optional[Character]:
     records = ws.get_all_records()[1:]
 
     for idx, record in enumerate(records):
-        if record["이름"] == name:
+        if record.get("이름") == name:
             return _record_to_character(record, row_index=idx + 3)
 
     return None
@@ -39,13 +39,13 @@ def get_character_by_mastodon_id(mastodon_id: str) -> Optional[Character]:
     records = ws.get_all_records()[1:]
 
     for idx, record in enumerate(records):
-        if record["아이디"] == mastodon_id:
+        if record.get("아이디") == mastodon_id:
             return _record_to_character(record, row_index=idx + 3)
 
     return None
 
 
-def update_bag_items(name: str, items: list[dict]):
+def update_bag_items(name: str, items: list[dict]) -> bool:
     """가방 아이템 업데이트"""
     char = get_character_by_name(name)
     if not char:
@@ -54,12 +54,12 @@ def update_bag_items(name: str, items: list[dict]):
     ws = get_worksheet(WORKSHEET_MANAGEMENT)
     bag_text = serialize_inventory(items)
 
-    # 가방 컬럼 (F열 = 6)
-    ws.update_cell(char.row_index, 6, bag_text)
+    # 가방 컬럼 (1-based: G열 = 7)
+    ws.update_cell(char.row_index, ManagementColumns.BAG + 1, bag_text)
     return True
 
 
-def update_nearby_items(name: str, items: list[dict]):
+def update_nearby_items(name: str, items: list[dict]) -> bool:
     """주변 아이템 업데이트"""
     char = get_character_by_name(name)
     if not char:
@@ -68,16 +68,29 @@ def update_nearby_items(name: str, items: list[dict]):
     ws = get_worksheet(WORKSHEET_MANAGEMENT)
     nearby_text = serialize_inventory(items)
 
-    # 주변 컬럼 (H열 = 8)
-    ws.update_cell(char.row_index, 8, nearby_text)
+    # 주변 컬럼 (1-based: I열 = 9)
+    ws.update_cell(char.row_index, ManagementColumns.NEARBY + 1, nearby_text)
+    return True
+
+
+def update_misc_items(name: str, items: list[dict]) -> bool:
+    """여유공간 아이템 업데이트"""
+    char = get_character_by_name(name)
+    if not char:
+        return False
+
+    ws = get_worksheet(WORKSHEET_MANAGEMENT)
+    misc_text = serialize_inventory(items)
+    ws.update_cell(char.row_index, ManagementColumns.MISC + 1, misc_text)
     return True
 
 
 def _record_to_character(record: dict, row_index: int) -> Character:
     """시트 레코드를 Character 객체로 변환"""
     return Character(
-        name=record["이름"],
-        mastodon_id=record["아이디"],
+        name=str(record.get("이름") or ""),
+        mastodon_id=str(record.get("아이디") or ""),
+        faction=str(record.get("진영", "") or ""),
         health=int(record.get("체력", 0) or 0),
         strength=int(record.get("근력", 1) or 1),
         luck=int(record.get("행운", 0) or 0),
