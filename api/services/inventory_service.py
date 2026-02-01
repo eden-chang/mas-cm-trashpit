@@ -32,12 +32,10 @@ def calculate_total_volume(items: list[dict]) -> int:
 
 def move_nearby_to_bag(char: Character, item_name: str, quantity: int = 1) -> dict:
     """주변 아이템을 가방으로 이동"""
-    # 주변에서 아이템 찾기
-    nearby_item = None
-    for item in char.nearby_items:
-        if item.name == item_name:
-            nearby_item = item
-            break
+    nearby_item = next(
+        (item for item in char.nearby_items if item.name == item_name),
+        None,
+    )
 
     if not nearby_item:
         return {"success": False, "error": f"주변에 '{item_name}'이(가) 없습니다."}
@@ -45,15 +43,18 @@ def move_nearby_to_bag(char: Character, item_name: str, quantity: int = 1) -> di
     if nearby_item.quantity < quantity:
         return {"success": False, "error": f"수량이 부족합니다. (보유: {nearby_item.quantity})"}
 
-    # 아이템 부피 확인
     info = get_item_info(item_name)
     volume = info.volume if info else 0
     required_space = volume * quantity
 
-    if required_space > char.bag_available:
+    bag_items_dict = [{"name": i.name, "quantity": i.quantity} for i in char.bag_items]
+    bag_used = calculate_total_volume(bag_items_dict)
+    bag_available = char.bag_capacity - bag_used
+
+    if required_space > bag_available:
         return {
             "success": False,
-            "error": f"가방 공간이 부족합니다. (필요: {required_space}, 남음: {char.bag_available})",
+            "error": f"가방 공간이 부족합니다. (필요: {required_space}, 남음: {bag_available})",
         }
 
     # 주변에서 제거

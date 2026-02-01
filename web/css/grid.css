@@ -10,7 +10,110 @@
     min-height: 200px;
 }
 
-/* 그리드 슬롯 */
+/* 테트리스 스타일: 고정 셀 수 그리드 (부피 반영) */
+.inventory-grid-cells {
+    grid-template-columns: repeat(var(--bag-cols, 10), 40px);
+    grid-template-rows: repeat(var(--bag-rows, 4), 40px);
+    gap: 2px;
+    padding: 10px;
+    background: #eee;
+    border-radius: 8px;
+}
+
+.grid-cell {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    background: #fafafa;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: default;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.grid-cell:hover {
+    background: #f0f0f0;
+    border-color: #999;
+}
+
+.grid-cell.occupied {
+    background: #333;
+    color: #fff;
+    border-color: #111;
+    cursor: grab;
+}
+
+.grid-cell.occupied:active {
+    cursor: grabbing;
+}
+
+.grid-cell.occupied.dragging {
+    opacity: 0.5;
+}
+
+.grid-cell.drag-over {
+    background: #e0e0e0;
+    border-color: #333;
+    border-style: dashed;
+}
+
+/* 가방 탭 헤더 / 아이템 목록 */
+.bag-tab-content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.bag-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.bag-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.bag-capacity-text {
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.bag-item-list-title {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 8px;
+}
+
+.bag-items {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.bag-item-entry {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: #f5f5f5;
+    border-radius: 4px;
+    margin-bottom: 4px;
+    font-size: 0.9rem;
+}
+
+.bag-item-entry .item-volume {
+    font-size: 0.8rem;
+    color: #666;
+}
+
+/* 그리드 슬롯 (기존: 주변 탭 등에서 사용 가능) */
 .grid-slot {
     aspect-ratio: 1;
     background: #fff;
