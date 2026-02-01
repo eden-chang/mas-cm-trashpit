@@ -2,7 +2,7 @@
 
 from shared.models import Character, Item
 from api.services.item_service import get_item_info
-from api.services.sheet_service import update_bag_items, update_nearby_items
+from api.services.sheet_service import update_bag_and_nearby_items
 
 
 def enrich_items(items: list[Item]) -> list[dict]:
@@ -75,8 +75,11 @@ def move_nearby_to_bag(char: Character, item_name: str, quantity: int = 1) -> di
     else:
         char.bag_items.append(Item(name=item_name, quantity=quantity, volume=volume))
 
-    # 시트 업데이트
-    update_bag_items(char.name, [{"name": i.name, "quantity": i.quantity} for i in char.bag_items])
-    update_nearby_items(char.name, [{"name": i.name, "quantity": i.quantity} for i in char.nearby_items])
+    # 시트 업데이트 (가방·주변 한 번의 API 호출로 배치 업데이트)
+    update_bag_and_nearby_items(
+        char.name,
+        [{"name": i.name, "quantity": i.quantity} for i in char.bag_items],
+        [{"name": i.name, "quantity": i.quantity} for i in char.nearby_items],
+    )
 
     return {"success": True, "message": f"{item_name}을(를) 가방에 넣었습니다."}
