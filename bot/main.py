@@ -23,12 +23,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from bot.config import POLLING_INTERVAL
+from shared.config import POLLING_INTERVAL, DEBUG_MODE
 from bot.mastodon_client import get_notifications, reply
 from bot.commands import use, transfer, discard, acquire, grant
 from bot.logger import get_logger
 
 logger = get_logger()
+
+# 디버그 모드 설정
+if DEBUG_MODE:
+    os.environ["DEBUG"] = "true"
 
 # 명령어 패턴
 PATTERNS = {
