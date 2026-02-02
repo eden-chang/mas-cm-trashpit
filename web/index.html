@@ -1,13 +1,25 @@
 <!doctype html>
-<html lang="ko">
+<html lang="ko" class="h-full">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TRPG Inventory</title>
+    <link rel="icon" type="image/x-icon" href="/image/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>TRASHPIT</title>
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="TRASHPIT" />
+    <meta property="og:description" content="TRASHPIT 인벤토리 관리 시스템" />
+    <meta property="og:image" content="/image/preview.png" />
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="TRASHPIT" />
+    <meta name="twitter:description" content="TRASHPIT 인벤토리 관리 시스템" />
+    <meta name="twitter:image" content="/image/preview.png" />
   </head>
-  <body class="bg-bg-base">
-    <div id="root"></div>
+  <body class="h-full bg-background overflow-hidden">
+    <div id="root" class="h-full"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

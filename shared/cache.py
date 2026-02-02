@@ -99,7 +99,7 @@ def invalidate_cache(pattern: Optional[str] = None) -> int:
 def invalidate_character_cache(char_name: str) -> None:
     """특정 캐릭터 관련 캐시 무효화"""
     invalidate_cache(f"get_character_by_name:('{char_name}'")
-    invalidate_cache(f"get_character_by_mastodon_id")  # ID 캐시도 무효화
+    invalidate_cache("get_character_by_mastodon_id:")  # ID 캐시도 무효화 (패턴 매칭)
     invalidate_cache("get_all_characters")
 
 

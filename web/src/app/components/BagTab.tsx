@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { Coins, FileText, Paperclip, Clock, AlertCircle, X } from 'lucide-react';
+import { Coins, FileText, Paperclip, AlertCircle } from 'lucide-react';
 import type { ApiCharacter } from '@/lib/types';
+import { QuantityDialog } from '@/app/components/bag/dialogs';
+import type { QuantityDialogState } from '@/app/components/bag/types';
 import { apiBagToGridItems, apiNearbyToItems, apiMiscToItems } from '@/lib/transform';
 
 interface Item {
@@ -14,6 +16,7 @@ interface Item {
   shapeIndex?: number; // 현재 선택된 모양 인덱스
   icon?: string;
   type?: 'consumable' | 'equipment'; // 아이템 타입
+  color?: string; // 아이템 고유 색상
 }
 
 interface NearbyItem {
@@ -57,6 +60,95 @@ const SHAPES: Record<number, ShapePattern[]> = {
   ],
 };
 
+// ============================================================
+// 랜덤 색상 생성 함수
+// ============================================================
+
+/**
+ * 아이템별 랜덤 색상 생성
+ * 색상 범위: #c7baa7 (밝음) ~ #846539 (어두움)
+ */
+function generateRandomItemColor(): string {
+  // #c7baa7 = RGB(199, 186, 167)
+  // #846539 = RGB(132, 101, 57)
+  const r = Math.floor(132 + Math.random() * (199 - 132));
+  const g = Math.floor(101 + Math.random() * (186 - 101));
+  const b = Math.floor(57 + Math.random() * (167 - 57));
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+// ============================================================
+// 자동 배치 헬퍼 함수들
+// ============================================================
+
+/**
+ * 특정 위치에 아이템을 배치할 수 있는지 확인
+ */
+function canPlaceAtPosition(
+  shape: ShapePattern,
+  startRow: number,
+  startCol: number,
+  occupiedCells: Set<string>,
+  gridRows: number,
+  gridCols: number
+): boolean {
+  for (const pos of shape) {
+    const row = startRow + pos.row;
+    const col = startCol + pos.col;
+    
+    // 그리드 범위 체크
+    if (row < 0 || row >= gridRows || col < 0 || col >= gridCols) {
+      return false;
+    }
+    
+    // 이미 점유된 셀 체크
+    if (occupiedCells.has(`${row},${col}`)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * 아이템을 배치할 수 있는 다음 빈 위치 찾기 (좌상단부터 순회)
+ */
+function findNextAvailablePosition(
+  volume: number,
+  shapeIndex: number,
+  occupiedCells: Set<string>,
+  gridRows: number,
+  gridCols: number
+): { row: number; col: number } | null {
+  const shape = SHAPES[volume]?.[shapeIndex] || SHAPES[1][0];
+  
+  for (let row = 0; row < gridRows; row++) {
+    for (let col = 0; col < gridCols; col++) {
+      if (canPlaceAtPosition(shape, row, col, occupiedCells, gridRows, gridCols)) {
+        return { row, col };
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * 아이템이 차지하는 셀들을 점유 상태로 기록
+ */
+function markOccupied(
+  volume: number,
+  shapeIndex: number,
+  gridPosition: { row: number; col: number },
+  occupiedCells: Set<string>
+): void {
+  const shape = SHAPES[volume]?.[shapeIndex] || SHAPES[1][0];
+  
+  for (const pos of shape) {
+    const row = gridPosition.row + pos.row;
+    const col = gridPosition.col + pos.col;
+    occupiedCells.add(`${row},${col}`);
+  }
+}
+
 interface GridCellProps {
   rowIndex: number;
   colIndex: number;
@@ -71,9 +163,20 @@ interface GridCellProps {
   isValidDrop?: boolean;
   isInDropZone?: boolean;
   isMobile?: boolean;
+  gapSize: number;
 }
 
-function GridCell({ rowIndex, colIndex, cellData, onDrop, onItemClick, onDragStart, onDragEnd, onHover, draggedItem, hoverPosition, isValidDrop, isInDropZone, isMobile = false }: GridCellProps) {
+// 셀 크기 상수 - 모바일 터치 UX 개선을 위해 크기 증가
+const CELL_SIZE = {
+  mobile: 36,  // 28px → 36px (터치 친화적)
+  desktop: 48,
+  gap: {
+    mobile: 2,
+    desktop: 4,
+  }
+};
+
+const GridCell = memo(function GridCell({ rowIndex, colIndex, cellData, onDrop, onItemClick, onDragStart, onDragEnd, onHover, draggedItem, hoverPosition, isValidDrop, isInDropZone, isMobile = false, gapSize }: GridCellProps) {
   const { item, isFirst } = cellData;
   
   const [{ isOver, canDrop }, drop] = useDrop({
@@ -114,44 +217,45 @@ function GridCell({ rowIndex, colIndex, cellData, onDrop, onItemClick, onDragSta
     drop(node);
   };
 
-  // 5칸 단위 굵은 선 체크
-  const isThickBorderRight = (colIndex + 1) % 5 === 0;
-  const isThickBorderBottom = (rowIndex + 1) % 5 === 0;
+  const cellSize = isMobile ? CELL_SIZE.mobile : CELL_SIZE.desktop;
+  // CSS Grid gap과 동기화된 아이템 위치 계산
+  const totalCellSize = cellSize + gapSize;
 
-  // 빈 셀 - 더 밝은 그리드 라인으로 가시성 향상
+  // 빈 셀
   if (!item) {
-    // 고스트 프리뷰 표시 여부 체크
-    const showGhost = draggedItem && hoverPosition && 
+    const showGhost = draggedItem && hoverPosition &&
       hoverPosition.row === rowIndex && hoverPosition.col === colIndex;
+
+    // 색상 결정
+    let borderColor = 'var(--bg-light)';
+    let bgColor = 'transparent';
     
+    if (isOver && canDrop) {
+      borderColor = 'var(--blue)';
+      bgColor = 'rgba(59, 130, 246, 0.1)';
+    } else if (showGhost) {
+      borderColor = 'var(--blue)';
+      bgColor = 'rgba(59, 130, 246, 0.05)';
+    } else if (isInDropZone && isValidDrop) {
+      borderColor = 'var(--success)';
+      bgColor = 'rgba(34, 197, 94, 0.1)';
+    } else if (isInDropZone && !isValidDrop) {
+      borderColor = 'var(--danger)';
+      bgColor = 'rgba(255, 71, 87, 0.1)';
+    }
+
     return (
       <div
         ref={drop}
-        className={`w-7 h-7 md:w-12 md:h-12 transition-all ${
-          isOver && canDrop
-            ? 'bg-[#00F3FF]/15 border-[#00F3FF]/60 shadow-[inset_0_0_15px_rgba(0,243,255,0.3)]'
-            : showGhost
-            ? 'bg-[#00F3FF]/10 border-[#00F3FF]/40'
-            : isInDropZone && isValidDrop
-            ? 'bg-[#00FF88]/20 border-[#00FF88]/60'
-            : isInDropZone && !isValidDrop
-            ? 'bg-[#FF4757]/20 border-[#FF4757]/60'
-            : 'bg-transparent hover:border-[#00F3FF]/40'
-        }`}
         style={{
-          borderWidth: '1px',
-          borderRightWidth: isThickBorderRight ? '2px' : '1px',
-          borderBottomWidth: isThickBorderBottom ? '2px' : '1px',
-          borderColor: isOver && canDrop 
-            ? 'rgba(0, 243, 255, 0.6)' 
-            : showGhost 
-            ? 'rgba(0, 243, 255, 0.4)'
-            : isInDropZone && isValidDrop
-            ? 'rgba(0, 255, 136, 0.6)'
-            : isInDropZone && !isValidDrop
-            ? 'rgba(255, 71, 87, 0.6)'
-            : 'rgba(42, 47, 58, 0.8)',
+          width: `${cellSize}px`,
+          height: `${cellSize}px`,
+          boxSizing: 'border-box',
+          border: `1px solid ${borderColor}`,
+          backgroundColor: bgColor,
         }}
+        role="gridcell"
+        aria-label={`셀 ${rowIndex + 1}행 ${colIndex + 1}열, 비어있음`}
       />
     );
   }
@@ -159,123 +263,94 @@ function GridCell({ rowIndex, colIndex, cellData, onDrop, onItemClick, onDragSta
   // 아이템이 있는 셀
   if (!isFirst) {
     // 첫 칸이 아니면 완전 투명 (병합된 셀의 일부 - 그리드 라인 완전 제거)
-    return <div className="w-7 h-7 md:w-12 md:h-12 bg-transparent border-0" />;
+    return <div style={{ width: `${cellSize}px`, height: `${cellSize}px`, boxSizing: 'border-box' }} className="bg-transparent border-0" />;
   }
 
-  // 첫 칸 - 진짜 병합된 하나의 블록으로 렌더링
+  // 첫 칸 - 진짜 병합된 하나의 블록으로 렌더링 (아이템 내부 비텍스트 = 검정)
   const shapeIndex = item.shapeIndex || 0;
   const shape = SHAPES[item.volume]?.[shapeIndex] || SHAPES[1][0];
 
-  // 타입별 색상 설정
-  const itemColors = item.type === 'consumable' 
-    ? { border: '#00F3FF', glow: 'rgba(0, 243, 255, 0.4)', bg: 'rgba(0, 243, 255, 0.15)' }
-    : item.type === 'equipment'
-    ? { border: '#FFB020', glow: 'rgba(255, 176, 32, 0.4)', bg: 'rgba(255, 176, 32, 0.15)' }
-    : { border: '#BF5AF2', glow: 'rgba(191, 90, 242, 0.4)', bg: 'rgba(191, 90, 242, 0.15)' };
-
   return (
-    <div className="w-7 h-7 md:w-12 md:h-12 relative">
-      {/* 각 셀을 절대 위치로 독립 렌더링 - 경계 박스 없이 */}
-      {shape.map((pos, idx) => {
-        // 모바일과 데스크톱에서 다른 크기 사용
-        const cellSize = isMobile ? 28 : 48;
-        const gapSize = isMobile ? 1 : 4;
-        const totalCellSize = cellSize + gapSize;
-        
-        return (
-          <div
-            key={idx}
-            ref={idx === 0 ? ref : undefined}
-            className={`absolute cursor-move transition-all group ${
-              isDragging ? 'opacity-40' : 'opacity-100'
-            }`}
-            style={{
-              left: `${pos.col * totalCellSize}px`,
-              top: `${pos.row * totalCellSize}px`,
-              width: `${cellSize}px`,
-              height: `${cellSize}px`,
-              zIndex: 10,
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
+    <div style={{ width: `${cellSize}px`, height: `${cellSize}px` }} className="relative">
+      {shape.map((pos, idx) => (
+        <div
+          key={idx}
+          ref={idx === 0 ? ref : undefined}
+          className="absolute cursor-move"
+          style={{
+            left: `${pos.col * totalCellSize}px`,
+            top: `${pos.row * totalCellSize}px`,
+            width: `${cellSize}px`,
+            height: `${cellSize}px`,
+            zIndex: 10,
+            opacity: isDragging ? 0.4 : 1,
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (item) onItemClick(item);
+          }}
+          role="button"
+          aria-label={`${item.name}, 부피 ${item.volume}, 클릭하여 모양 변경`}
+          tabIndex={idx === 0 ? 0 : -1}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
               if (item) onItemClick(item);
+            }
+          }}
+        >
+          {/* 아이템 배경 */}
+          <div
+            className="absolute inset-0 rounded"
+            style={{
+              backgroundColor: item.color || 'var(--item)',
+              border: `2px solid ${item.color || 'var(--item)'}`,
             }}
-          >
-            <div 
-              className="absolute inset-0 rounded-md md:rounded-lg overflow-hidden transition-all duration-200 group-hover:scale-105"
-              style={{
-                background: `linear-gradient(135deg, ${itemColors.bg} 0%, ${itemColors.bg.replace('0.15', '0.25')} 100%)`,
-                backdropFilter: 'blur(10px)',
-                border: `1.5px solid ${itemColors.border}`,
-                boxShadow: `0 0 12px ${itemColors.glow}, inset 0 0 12px ${itemColors.glow.replace('0.4', '0.1')}`,
+          />
+
+          {/* 부피 표시 - 첫 번째 셀에만 */}
+          {idx === 0 && (
+            <div
+              className="absolute font-bold pointer-events-none z-10"
+              style={{ 
+                top: '2px', 
+                left: '4px',
+                fontSize: isMobile ? '8px' : '9px',
+                color: 'var(--text)',
               }}
             >
-              {/* Inner glow effect */}
-              <div 
-                className="absolute inset-0" 
-                style={{
-                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 50%)',
-                }}
-              />
+              {item.volume}
             </div>
-            
-            {/* 호버시 추가 글로우 */}
-            <div 
-              className="absolute inset-0 rounded-md md:rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" 
-              style={{ 
-                boxShadow: `0 0 20px ${itemColors.glow.replace('0.4', '1')}, inset 0 0 20px ${itemColors.glow}` 
-              }} 
-            />
-            
-            {/* 부피 표시 - 첫 번째 셀에만 */}
-            {idx === 0 && (
-              <div 
-                className="absolute px-1 py-0.5 rounded text-[7px] md:text-[9px] font-bold font-mono pointer-events-none z-10"
+          )}
+
+          {/* 아이템 라벨 - 첫 번째 셀에만 */}
+          {idx === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-1 z-10">
+              <div
+                className="font-bold text-center leading-tight"
                 style={{
-                  top: '2px',
-                  left: '2px',
-                  backgroundColor: itemColors.glow.replace('0.4', '0.8'),
-                  color: '#000',
-                  textShadow: 'none',
-                  border: `1px solid ${itemColors.border}`,
+                  fontSize: isMobile ? (item.volume === 1 ? '8px' : '9px') : (item.volume === 1 ? '9px' : '11px'),
+                  color: 'white',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
                 }}
               >
-                {item.volume}
+                {item.name}
               </div>
-            )}
-            
-            {/* 아이템 라벨 - 첫 번째 셀에만 */}
-            {idx === 0 && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-0.5 md:p-1 z-10">
-                <div 
-                  className="text-[8px] md:text-sm font-bold text-center leading-tight font-mono"
-                  style={{ 
-                    color: itemColors.border,
-                    textShadow: '0 1px 4px rgba(0, 0, 0, 1), 0 0 4px rgba(0, 0, 0, 0.9)',
-                    letterSpacing: '0.3px',
-                    filter: `drop-shadow(0 0 2px ${itemColors.glow})`,
-                    fontSize: item.volume === 1 ? '7px' : '8px',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {item.name}
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })}
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
-}
+});
 
 interface TrashZoneProps {
   onDrop: (item: Item | NearbyItem) => void;
 }
 
-function TrashZone({ onDrop }: TrashZoneProps) {
+const TrashZone = memo(function TrashZone({ onDrop }: TrashZoneProps) {
   const [{ isOver, canDrop }, drop] = useDrop({
     accept: ['item', 'nearby', 'freeitem'],
     drop: (item: Item | NearbyItem) => {
@@ -290,23 +365,32 @@ function TrashZone({ onDrop }: TrashZoneProps) {
   return (
     <div
       ref={drop}
-      className={`p-4 border-2 border-dashed rounded-lg text-center transition-all ${
-        isOver && canDrop
-          ? 'border-[#999999] bg-[#F5F5F5]'
-          : 'border-[#BBBBBB] bg-[#F0F0F0]'
-      }`}
+      className="p-4 border-2 border-dashed rounded-lg text-center transition-colors"
+      style={{
+        borderColor: isOver && canDrop ? 'var(--trash)' : 'var(--bg-light)',
+        backgroundColor: isOver && canDrop ? 'rgba(153, 153, 153, 0.1)' : 'transparent',
+      }}
+      role="region"
+      aria-label="아이템을 여기에 드롭하면 삭제됩니다"
     >
-      <div className="text-xs text-[#666666]">여기에 끌어다 놓으면 버려요</div>
+      <div 
+        className="text-sm font-medium"
+        style={{ color: isOver && canDrop ? 'var(--trash)' : 'var(--text-muted)' }}
+      >
+        이곳에 아이템을 끌어다 버릴 수 있어요
+      </div>
     </div>
   );
-}
+});
 
 interface NearbyZoneProps {
   onDrop: (item: Item) => void;
   children: React.ReactNode;
+  /** 가방·버리기 사이 공간을 채우도록 높이 확장 */
+  fillHeight?: boolean;
 }
 
-function NearbyZone({ onDrop, children }: NearbyZoneProps) {
+const NearbyZone = memo(function NearbyZone({ onDrop, children, fillHeight }: NearbyZoneProps) {
   const [{ isOver, canDrop }, drop] = useDrop({
     accept: ['item', 'freeitem'],
     drop: (item: Item) => {
@@ -321,26 +405,28 @@ function NearbyZone({ onDrop, children }: NearbyZoneProps) {
   return (
     <div
       ref={drop}
-      className={`bg-[#1A0F0F] backdrop-blur-sm border rounded-lg p-4 min-h-[120px] transition-all relative overflow-hidden shadow-[0_4px_16px_rgba(255,71,87,0.2)] ${
-        isOver && canDrop 
-          ? 'border-[#FF4757] shadow-[0_0_30px_rgba(255,71,87,0.6)]' 
-          : 'border-[#FF4757]/40 shadow-[0_0_20px_rgba(255,71,87,0.3)]'
-      }`}
+      className={`border rounded-lg p-4 ${fillHeight ? 'flex-1 min-h-0 flex flex-col' : 'min-h-[120px]'}`}
+      style={{
+        backgroundColor: 'var(--bg)',
+        borderColor: isOver && canDrop ? 'var(--danger)' : 'rgba(255, 71, 87, 0.3)',
+        borderWidth: isOver && canDrop ? '2px' : '1px',
+      }}
+      role="region"
+      aria-label="주변 아이템 영역"
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-[#FF4757]/10 to-transparent pointer-events-none animate-pulse" />
-      <div className="relative">
-        {children}
-      </div>
+      {fillHeight ? <div className="overflow-auto flex-1 min-h-0 pt-2">{children}</div> : children}
     </div>
   );
-}
+});
 
 interface MiscSpaceZoneProps {
   onDrop: (item: NearbyItem) => void;
   children: React.ReactNode;
+  /** 가방·버리기 사이 공간을 채우도록 높이 확장 */
+  fillHeight?: boolean;
 }
 
-function MiscSpaceZone({ onDrop, children }: MiscSpaceZoneProps) {
+const MiscSpaceZone = memo(function MiscSpaceZone({ onDrop, children, fillHeight }: MiscSpaceZoneProps) {
   const [{ isOver, canDrop }, drop] = useDrop({
     accept: ['nearby'],
     drop: (item: NearbyItem) => {
@@ -355,25 +441,25 @@ function MiscSpaceZone({ onDrop, children }: MiscSpaceZoneProps) {
   return (
     <div
       ref={drop}
-      className={`bg-[#161922]/50 backdrop-blur-sm border p-3 md:p-4 rounded-lg min-h-[100px] md:min-h-[120px] relative overflow-hidden transition-all ${
-        isOver && canDrop 
-          ? 'border-[#BF5AF2] shadow-[0_0_30px_rgba(191,90,242,0.4)]' 
-          : 'border-[#BF5AF2]/20 shadow-[0_4px_16px_rgba(191,90,242,0.1)]'
-      }`}
+      className={`border rounded-lg p-4 ${fillHeight ? 'flex-1 min-h-0 flex flex-col' : 'min-h-[120px]'}`}
+      style={{
+        backgroundColor: 'var(--bg)',
+        borderColor: isOver && canDrop ? 'var(--misc)' : 'rgba(249, 115, 22, 0.3)',
+        borderWidth: isOver && canDrop ? '2px' : '1px',
+      }}
+      role="region"
+      aria-label="여유공간 영역 (무게 없는 아이템)"
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-[#BF5AF2]/5 to-transparent pointer-events-none" />
-      <div className="relative">
-        {children}
-      </div>
+      {fillHeight ? <div className="overflow-auto flex-1 min-h-0 pt-2">{children}</div> : children}
     </div>
   );
-}
+});
 
 interface FreeItemChipProps {
   item: Item;
 }
 
-function FreeItemChip({ item }: FreeItemChipProps) {
+const FreeItemChip = memo(function FreeItemChip({ item }: FreeItemChipProps) {
   const [{ isDragging }, drag] = useDrag({
     type: 'freeitem',
     item: item,
@@ -398,93 +484,148 @@ function FreeItemChip({ item }: FreeItemChipProps) {
   return (
     <div
       ref={drag}
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-[#2A2F3A]/50 backdrop-blur-sm border border-[#BF5AF2]/30 rounded-lg text-xs text-[#E8EAED] cursor-move hover:bg-[#BF5AF2]/20 hover:border-[#BF5AF2] hover:shadow-[0_0_10px_rgba(191,90,242,0.4)] transition-all font-medium ${
-        isDragging ? 'opacity-30' : 'opacity-100'
-      }`}
+      className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg cursor-move text-sm font-medium"
+      style={{
+        backgroundColor: 'var(--bg-light)',
+        border: '1px solid var(--misc)',
+        color: 'var(--text)',
+        opacity: isDragging ? 0.3 : 1,
+      }}
+      role="button"
+      aria-label={`${item.name}, 수량 ${item.count}개, 드래그하여 이동`}
+      tabIndex={0}
     >
       {getIcon(item.icon)}
       <span>{item.name}</span>
-      <span className="text-[#BF5AF2] font-mono text-[10px]">×{item.count}</span>
+      <span 
+        className="text-xs font-bold px-1.5 py-0.5 rounded"
+        style={{ backgroundColor: 'rgba(249, 115, 22, 0.2)', color: 'var(--misc)' }}
+      >
+        ×{item.count}
+      </span>
     </div>
   );
-}
+});
 
 interface NearbyItemChipProps {
   item: NearbyItem;
   count?: number;
 }
 
-function NearbyItemChip({ item, count = 1 }: NearbyItemChipProps) {
+const NearbyItemChip = memo(function NearbyItemChip({ item, count = 1 }: NearbyItemChipProps) {
   const [{ isDragging }, drag] = useDrag({
     type: 'nearby',
     item: item,
-    collect: (monitor) => {
-      const isDragging = monitor.isDragging();
-      return {
-        isDragging,
-      };
-    },
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
   });
 
   return (
     <div
       ref={drag}
-      className={`inline-flex items-center gap-2 px-3 py-2 bg-[#2A2F3A]/50 backdrop-blur-sm border rounded-lg text-xs text-[#E8EAED] cursor-move hover:bg-[#FF4757]/20 hover:border-[#FF4757] hover:shadow-[0_0_15px_rgba(255,71,87,0.5)] transition-all font-medium relative ${
-        isDragging ? 'opacity-30' : 'opacity-100'
-      }`}
+      className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg cursor-move text-sm font-medium relative"
       style={{
-        borderColor: 'rgba(255, 71, 87, 0.5)',
-        animation: 'flicker 2s ease-in-out infinite',
+        backgroundColor: 'var(--bg-light)',
+        border: '1px solid var(--danger)',
+        color: 'var(--text)',
+        opacity: isDragging ? 0.3 : 1,
       }}
+      role="button"
+      aria-label={`${item.name}, 부피 ${item.volume}${count > 1 ? `, ${count}개` : ''}, 드래그하여 가방에 넣기`}
+      tabIndex={0}
     >
       {count > 1 && (
-        <span className="absolute -top-2 -right-2 px-1.5 py-0.5 bg-[#FF4757] text-white rounded-full text-[10px] font-mono font-bold border-2 border-[#0B0E14]">
+        <span 
+          className="absolute -top-2 -right-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold"
+          style={{ backgroundColor: 'var(--danger)', color: 'white' }}
+        >
           ×{count}
         </span>
       )}
       <span>{item.name}</span>
-      <span className="px-1.5 py-0.5 bg-[#FF4757]/20 text-[#FF4757] rounded text-[10px] font-mono border border-[#FF4757]/30 font-bold">
+      <span 
+        className="px-1.5 py-0.5 rounded text-xs font-bold"
+        style={{ backgroundColor: 'rgba(255, 71, 87, 0.2)', color: 'var(--danger)' }}
+      >
         {item.volume}
       </span>
     </div>
   );
+});
+
+export interface InventoryState {
+  items: Item[];
+  nearbyItems: NearbyItem[];
+  freeItems: Item[];
 }
 
 interface BagTabProps {
   gridSize: number;
   timeRemaining: number;
   formatTime: (time: number) => string;
+  /** 타이머가 API가 아닌 데모용일 때 표시할 라벨 (예: "데모") */
+  timerLabel?: string;
   characterData?: ApiCharacter;
-  onItemsChange?: (items: Item[]) => void;
+  onInventoryChange?: (state: InventoryState) => void;
   onRefresh?: () => void;
 }
 
-function BagTabContent({ gridSize, timeRemaining, formatTime, characterData, onItemsChange, onRefresh }: BagTabProps) {
+function BagTabContent({ gridSize, timeRemaining, formatTime, timerLabel, characterData, onInventoryChange, onRefresh }: BagTabProps) {
   const gridCols = 10;
   const gridRows = Math.ceil(gridSize / gridCols);
 
-  // Initialize items from API data or use mock data as fallback
+  // Initialize items from API data
   const getInitialItems = useCallback((): Item[] => {
     if (characterData?.bag_items && characterData.bag_items.length > 0) {
-      const transformed = apiBagToGridItems(characterData.bag_items, gridSize);
-      return transformed.map(item => ({
-        id: item.id,
-        name: item.name,
-        count: item.count,
-        volume: item.volume,
-        gridPosition: item.gridPosition,
-        shapeIndex: item.shapeIndex,
-      }));
+      // bag_layout이 있으면 저장된 배치 정보 적용
+      const transformed = apiBagToGridItems(characterData.bag_items, characterData.bag_layout || []);
+      
+      // 점유 셀 추적용 Set
+      const occupiedCells = new Set<string>();
+      
+      // 먼저 이미 배치된 아이템들의 점유 셀 기록
+      transformed.forEach(item => {
+        if (item.gridPosition && item.volume > 0) {
+          markOccupied(item.volume, item.shapeIndex || 0, item.gridPosition, occupiedCells);
+        }
+      });
+      
+      // 아이템 변환 및 자동 배치 적용
+      return transformed.map(item => {
+        let gridPosition = item.gridPosition;
+        let shapeIndex = item.shapeIndex || 0;
+        
+        // gridPosition이 없고 부피가 있는 아이템은 자동 배치
+        if (!gridPosition && item.volume > 0) {
+          // 모든 가능한 모양에 대해 배치 시도
+          const shapes = SHAPES[item.volume] || SHAPES[1];
+          for (let si = 0; si < shapes.length; si++) {
+            const position = findNextAvailablePosition(item.volume, si, occupiedCells, gridRows, gridCols);
+            if (position) {
+              gridPosition = position;
+              shapeIndex = si;
+              // 점유 셀 기록
+              markOccupied(item.volume, shapeIndex, gridPosition, occupiedCells);
+              break;
+            }
+          }
+        }
+        
+        return {
+          id: item.id,
+          name: item.name,
+          count: item.count,
+          volume: item.volume,
+          gridPosition,
+          shapeIndex,
+          color: generateRandomItemColor(),
+        };
+      });
     }
-    // Fallback to mock data if no API data
-    return [
-      { id: '1', name: '사과', count: 1, volume: 1, gridPosition: { row: 0, col: 0 }, shapeIndex: 0 },
-      { id: '2', name: '물병', count: 1, volume: 1, gridPosition: { row: 0, col: 1 }, shapeIndex: 0 },
-      { id: '3', name: '빵', count: 1, volume: 2, gridPosition: { row: 0, col: 2 }, shapeIndex: 0 },
-      { id: '4', name: '철 광석', count: 1, volume: 4, gridPosition: { row: 0, col: 4 }, shapeIndex: 0 },
-      { id: '5', name: '검', count: 1, volume: 4, gridPosition: { row: 0, col: 8 }, shapeIndex: 0 },
-    ];
-  }, [characterData, gridSize]);
+    // No items - return empty array
+    return [];
+  }, [characterData, gridRows, gridCols]);
 
   const getInitialFreeItems = useCallback((): Item[] => {
     if (characterData?.misc_items && characterData.misc_items.length > 0) {
@@ -495,11 +636,8 @@ function BagTabContent({ gridSize, timeRemaining, formatTime, characterData, onI
         volume: 0,
       }));
     }
-    return [
-      { id: 'f1', name: '클립', count: 5, volume: 0, icon: 'paperclip' },
-      { id: 'f2', name: '메모지', count: 12, volume: 0, icon: 'file' },
-      { id: 'f3', name: '동전', count: 8, volume: 0, icon: 'coins' },
-    ];
+    // No items - return empty array
+    return [];
   }, [characterData]);
 
   const getInitialNearbyItems = useCallback((): NearbyItem[] => {
@@ -516,21 +654,8 @@ function BagTabContent({ gridSize, timeRemaining, formatTime, characterData, onI
       });
       return items;
     }
-    return [
-      { id: 'n1', name: '포션', volume: 1 },
-      { id: 'n2', name: '포션', volume: 1 },
-      { id: 'n3', name: '포션', volume: 1 },
-      { id: 'n4', name: '붕대', volume: 2 },
-      { id: 'n5', name: '붕대', volume: 2 },
-      { id: 'n6', name: '소독약', volume: 2 },
-      { id: 'n7', name: '소독약', volume: 2 },
-      { id: 'n8', name: '잡지', volume: 3 },
-      { id: 'n9', name: '잡지', volume: 3 },
-      { id: 'n10', name: '빵', volume: 2 },
-      { id: 'n11', name: '영수증', volume: 0, icon: 'file' },
-      { id: 'n12', name: '영수증', volume: 0, icon: 'file' },
-      { id: 'n13', name: '영수증', volume: 0, icon: 'file' },
-    ];
+    // No items - return empty array
+    return [];
   }, [characterData]);
 
   const [items, setItems] = useState<Item[]>(getInitialItems);
@@ -544,25 +669,29 @@ function BagTabContent({ gridSize, timeRemaining, formatTime, characterData, onI
     setNearbyItems(getInitialNearbyItems());
   }, [characterData, getInitialItems, getInitialFreeItems, getInitialNearbyItems]);
 
-  // Notify parent when items change
+  // Notify parent when full inventory changes (for sync - bag, nearby, misc)
   useEffect(() => {
-    if (onItemsChange) {
-      onItemsChange(items);
+    if (onInventoryChange) {
+      onInventoryChange({
+        items,
+        nearbyItems,
+        freeItems,
+      });
     }
-  }, [items, onItemsChange]);
+  }, [items, nearbyItems, freeItems, onInventoryChange]);
 
   const [draggedItem, setDraggedItem] = useState<(Item | NearbyItem) | null>(null);
   const [hoverPosition, setHoverPosition] = useState<{ row: number; col: number } | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   
-  // 수량 선택 다이얼로그 상태
-  const [quantityDialog, setQuantityDialog] = useState<{
-    isOpen: boolean;
-    item: Item | NearbyItem | null;
-    maxQuantity: number;
-    selectedQuantity: number;
-    action: 'toNearby' | 'toMisc' | null;
-  }>({ isOpen: false, item: null, maxQuantity: 1, selectedQuantity: 1, action: null });
+  // 수량 선택 다이얼로그 상태 (QuantityDialog 컴포넌트와 통일)
+  const [quantityDialog, setQuantityDialog] = useState<QuantityDialogState>({
+    isOpen: false,
+    item: null,
+    maxQuantity: 1,
+    selectedQuantity: 1,
+    action: null,
+  });
 
   // 화면 크기 감지
   useEffect(() => {
@@ -713,6 +842,7 @@ function BagTabContent({ gridSize, timeRemaining, formatTime, characterData, onI
           gridPosition: { row, col },
           shapeIndex: 0,
           icon: draggedItem.icon,
+          color: generateRandomItemColor(),
         };
         
         if (canPlaceItem(newItem, row, col, 0)) {
@@ -880,7 +1010,7 @@ function BagTabContent({ gridSize, timeRemaining, formatTime, characterData, onI
       });
       
       // Nearby에서 해당 아이템 제거
-      if (item.ids) {
+      if ('ids' in item && item.ids) {
         // 그룹화된 아이템에서 선택한 수량 제거
         const removeIds = item.ids.slice(0, selectedQuantity);
         setNearbyItems((prev) => prev.filter((i) => !removeIds.includes(i.id)));
@@ -920,179 +1050,134 @@ function BagTabContent({ gridSize, timeRemaining, formatTime, characterData, onI
   
   const nearbyItemsGrouped = Object.values(groupedNearbyItems);
 
+  const cellSize = isMobile ? CELL_SIZE.mobile : CELL_SIZE.desktop;
+  const gapSize = isMobile ? CELL_SIZE.gap.mobile : CELL_SIZE.gap.desktop;
+
+  const closeQuantityDialog = () => {
+    setQuantityDialog({ isOpen: false, item: null, maxQuantity: 1, selectedQuantity: 1, action: null });
+  };
+
   return (
-    <div className="flex flex-col gap-4 md:gap-6 h-full">
-      {/* 수량 선택 다이얼로그 */}
-      {quantityDialog.isOpen && quantityDialog.item && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(11, 14, 20, 0.9)' }}>
-          <div className="bg-[#1C2128] border-2 border-[#BF5AF2] rounded-xl p-6 max-w-sm w-full shadow-[0_0_40px_rgba(191,90,242,0.5)] relative">
-            {/* Glassmorphism effect */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#BF5AF2]/10 to-transparent rounded-xl pointer-events-none" />
+    <div className="flex flex-col gap-4 md:gap-5 h-full min-h-0 relative">
+      {/* 배경 이미지 레이어 */}
+      <div 
+        className="absolute inset-0 pointer-events-none z-0"
+        style={{
+          backgroundImage: 'url(/image/bg.png)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          opacity: 0.15,
+        }}
+        aria-hidden="true"
+      />
+      <QuantityDialog
+        state={quantityDialog}
+        onClose={closeQuantityDialog}
+        onQuantityChange={(q) => setQuantityDialog((prev) => ({ ...prev, selectedQuantity: q }))}
+        onConfirm={handleQuantityConfirm}
+      />
+
+      {/* 상단: 가방 영역 */}
+      <section className="space-y-3 shrink-0 relative z-10" aria-labelledby="inventory-heading">
+        {/* 캐릭터 기본 정보 */}
+        <div 
+          className="rounded-lg p-3 md:p-4"
+          style={{ backgroundColor: 'var(--bg-mid)', border: '1px solid var(--bg-light)' }}
+        >
+          <div className="flex items-center justify-between gap-4">
+            {/* 왼쪽: 캐릭터 이름 */}
+            <h3 className="text-base md:text-lg font-bold tracking-wide" style={{ color: 'var(--blue)' }}>
+              {characterData?.name ?? '-'}
+            </h3>
             
-            <div className="relative space-y-4">
-              {/* 헤더 */}
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold text-[#BF5AF2] uppercase tracking-wider">수량 선택</h3>
-                <button
-                  onClick={() => setQuantityDialog({ isOpen: false, item: null, maxQuantity: 1, selectedQuantity: 1, action: null })}
-                  className="text-[#8B92A0] hover:text-[#BF5AF2] transition-colors"
+            {/* 오른쪽: 스탯 정보 */}
+            <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2 md:gap-x-5">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>체력</span>
+                <span className="text-sm font-bold" style={{ color: 'var(--text)' }}>{characterData?.health ?? '-'}</span>
+              </div>
+              
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>근력</span>
+                <span className="text-sm font-bold" style={{ color: 'var(--text)' }}>{characterData?.strength ?? '-'}</span>
+              </div>
+              
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>행운</span>
+                <span className="text-sm font-bold" style={{ color: 'var(--text)' }}>{characterData?.luck ?? '-'}</span>
+              </div>
+              
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>HP</span>
+                <span className="text-sm font-bold" style={{ color: 'var(--text)' }}>{characterData?.hp ?? '-'}</span>
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>/{characterData?.max_hp ?? '-'}</span>
+              </div>
+              
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>가방</span>
+                <span 
+                  className="text-sm font-bold"
+                  style={{ 
+                    color: usedCapacity / maxCapacity > 0.8 ? 'var(--danger)' 
+                      : usedCapacity / maxCapacity > 0.6 ? 'var(--warn)' 
+                      : 'var(--text)' 
+                  }}
                 >
-                  <X className="w-5 h-5" />
-                </button>
+                  {usedCapacity}
+                </span>
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>/{maxCapacity}</span>
               </div>
-
-              {/* 아이템 정보 */}
-              <div className="bg-[#0B0E14]/50 border border-[#BF5AF2]/30 rounded-lg p-4">
-                <div className="text-sm text-[#E8EAED] font-medium mb-2">{quantityDialog.item.name}</div>
-                <div className="text-xs text-[#8B92A0] font-mono">보유 수량: {quantityDialog.maxQuantity}개</div>
-              </div>
-
-              {/* 수량 선택 */}
-              <div className="space-y-2">
-                <label className="text-sm text-[#E8EAED] font-medium">이동할 수량</label>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setQuantityDialog(prev => ({ ...prev, selectedQuantity: Math.max(1, prev.selectedQuantity - 1) }))}
-                    className="px-4 py-2 bg-[#2A2F3A] border border-[#BF5AF2]/30 rounded-lg text-[#BF5AF2] font-bold hover:bg-[#BF5AF2]/20 hover:border-[#BF5AF2] transition-all"
-                  >
-                    -
-                  </button>
-                  <input
-                    type="number"
-                    min="1"
-                    max={quantityDialog.maxQuantity}
-                    value={quantityDialog.selectedQuantity}
-                    onChange={(e) => {
-                      const value = Math.min(quantityDialog.maxQuantity, Math.max(1, parseInt(e.target.value) || 1));
-                      setQuantityDialog(prev => ({ ...prev, selectedQuantity: value }));
-                    }}
-                    className="flex-1 px-4 py-2 bg-[#0B0E14] border border-[#BF5AF2]/30 rounded-lg text-center text-[#E8EAED] font-mono font-bold focus:border-[#BF5AF2] focus:outline-none"
-                  />
-                  <button
-                    onClick={() => setQuantityDialog(prev => ({ ...prev, selectedQuantity: Math.min(prev.maxQuantity, prev.selectedQuantity + 1) }))}
-                    className="px-4 py-2 bg-[#2A2F3A] border border-[#BF5AF2]/30 rounded-lg text-[#BF5AF2] font-bold hover:bg-[#BF5AF2]/20 hover:border-[#BF5AF2] transition-all"
-                  >
-                    +
-                  </button>
-                </div>
-                <button
-                  onClick={() => setQuantityDialog(prev => ({ ...prev, selectedQuantity: prev.maxQuantity }))}
-                  className="w-full py-1.5 text-xs text-[#8B92A0] hover:text-[#BF5AF2] transition-colors font-mono"
-                >
-                  전체 선택
-                </button>
-              </div>
-
-              {/* 버튼 */}
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => setQuantityDialog({ isOpen: false, item: null, maxQuantity: 1, selectedQuantity: 1, action: null })}
-                  className="flex-1 px-4 py-2.5 bg-[#2A2F3A] border border-[#8B92A0]/30 rounded-lg text-[#8B92A0] font-bold hover:bg-[#8B92A0]/20 hover:border-[#8B92A0] transition-all"
-                >
-                  취소
-                </button>
-                <button
-                  onClick={handleQuantityConfirm}
-                  className="flex-1 px-4 py-2.5 bg-[#BF5AF2]/20 border border-[#BF5AF2] rounded-lg text-[#BF5AF2] font-bold hover:bg-[#BF5AF2]/30 hover:shadow-[0_0_20px_rgba(191,90,242,0.6)] transition-all"
-                >
-                  확인
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 상단: 가방 영역 (메인) */}
-      <div className="flex-1 space-y-2 md:space-y-3">
-        {/* 헤더 및 용량 정보 */}
-        <div className="flex items-end justify-between flex-wrap gap-2">
-          <h3 className="text-sm md:text-base font-bold text-[#00F3FF] tracking-wider uppercase" style={{ fontFamily: 'Inter, sans-serif' }}>Inventory Bag</h3>
-          {/* 대형 용량 수치 + 경고 */}
-          <div className="flex items-center gap-2 md:gap-3">
-            {isCriticalCapacity && (
-              <div className="flex items-center gap-1 md:gap-1.5 px-1.5 md:px-2 py-0.5 md:py-1 bg-[#FF4757]/10 border border-[#FF4757]/30 rounded-lg animate-pulse">
-                <AlertCircle className="w-3 h-3 md:w-3.5 md:h-3.5 text-[#FF4757]" />
-                <span className="text-[10px] md:text-xs text-[#FF4757] font-mono font-bold">CRITICAL</span>
-              </div>
-            )}
-            <div className={`text-xl md:text-2xl font-bold font-mono transition-all ${
-              usedCapacity / maxCapacity > 0.8
-                ? 'text-[#FF4757]'
-                : usedCapacity / maxCapacity > 0.6
-                ? 'text-[#FFB020]'
-                : 'text-[#00FF88]'
-            }`}>
-              {usedCapacity} <span className="text-base md:text-lg text-[#8B92A0]">/</span> {maxCapacity}
             </div>
           </div>
         </div>
         
-        {/* Capacity Gauge */}
-        <div className="space-y-1 md:space-y-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] md:text-xs text-[#8B92A0] font-mono uppercase tracking-wider font-bold">CAPACITY</span>
-            <span className={`text-[10px] md:text-xs font-mono font-bold ${
-              usedCapacity / maxCapacity > 0.8
-                ? 'text-[#FF4757]'
-                : usedCapacity / maxCapacity > 0.6
-                ? 'text-[#FFB020]'
-                : 'text-[#00FF88]'
-            }`}>
-              {Math.round((usedCapacity / maxCapacity) * 100)}%
-            </span>
-          </div>
-          <div className="relative h-4 md:h-6 bg-[#0B0E14]/80 rounded-full overflow-hidden border border-white/10 md:border-2">
-            <div 
-              className={`h-full transition-all duration-500 ${
-                usedCapacity / maxCapacity > 0.8
-                  ? 'bg-gradient-to-r from-[#FF4757] to-[#FF6B9D] shadow-[0_0_20px_rgba(255,71,87,0.8)]'
-                  : usedCapacity / maxCapacity > 0.6
-                  ? 'bg-gradient-to-r from-[#FFB020] to-[#FFC837] shadow-[0_0_20px_rgba(255,176,32,0.8)]'
-                  : 'bg-gradient-to-r from-[#00FF88] to-[#00F3FF] shadow-[0_0_20px_rgba(0,255,136,0.8)]'
-              }`}
-              style={{ width: `${(usedCapacity / maxCapacity) * 100}%` }}
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent animate-pulse" />
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-[#1C2128]/60 backdrop-blur-sm border border-white/10 p-3 md:p-6 rounded-xl relative overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.4)] overflow-x-auto">
-          {/* Glassmorphism effect */}
-          <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
-          
-          <div className="relative mx-auto" style={{ width: 'fit-content', minWidth: '280px' }}>
-            {gridCells.map((row, rowIndex) => (
-              <div key={rowIndex} className="flex gap-1">
-                {row.map((cellData, colIndex) => {
-                  const cellKey = `${rowIndex}-${colIndex}`;
-                  const isInDropZone = dropZoneCells.has(cellKey);
-                  
-                  return (
-                    <GridCell
-                      key={cellKey}
-                      rowIndex={rowIndex}
-                      colIndex={colIndex}
-                      cellData={cellData}
-                      onDrop={handleGridDrop}
-                      onItemClick={handleItemClick}
-                      onDragStart={setDraggedItem}
-                      onDragEnd={() => {
-                        setDraggedItem(null);
-                        setHoverPosition(null);
-                      }}
-                      onHover={(row, col) => setHoverPosition({ row, col })}
-                      draggedItem={draggedItem}
-                      hoverPosition={hoverPosition}
-                      isValidDrop={isValidDropPosition}
-                      isInDropZone={isInDropZone}
-                      isMobile={isMobile}
-                    />
-                  );
-                })}
-              </div>
-            ))}
+        {/* 그리드 컨테이너 */}
+        <div 
+          className="rounded-lg p-3 md:p-4 overflow-x-auto"
+          style={{ backgroundColor: 'var(--bg-mid)', border: '1px solid var(--bg-light)' }}
+        >
+          <div 
+            className="mx-auto relative" 
+            style={{ 
+              display: 'grid',
+              gridTemplateColumns: `repeat(${gridCols}, ${cellSize}px)`,
+              gridTemplateRows: `repeat(${gridRows}, ${cellSize}px)`,
+              gap: `${gapSize}px`,
+              width: 'fit-content',
+            }}
+            role="grid"
+            aria-label="인벤토리 그리드"
+          >
+            {gridCells.flat().map((cellData, idx) => {
+              const rowIndex = Math.floor(idx / gridCols);
+              const colIndex = idx % gridCols;
+              const cellKey = `${rowIndex}-${colIndex}`;
+              const isInDropZone = dropZoneCells.has(cellKey);
+              
+              return (
+                <GridCell
+                  key={cellKey}
+                  rowIndex={rowIndex}
+                  colIndex={colIndex}
+                  cellData={cellData}
+                  onDrop={handleGridDrop}
+                  onItemClick={handleItemClick}
+                  onDragStart={setDraggedItem}
+                  onDragEnd={() => {
+                    setDraggedItem(null);
+                    setHoverPosition(null);
+                  }}
+                  onHover={(row, col) => setHoverPosition({ row, col })}
+                  draggedItem={draggedItem}
+                  hoverPosition={hoverPosition}
+                  isValidDrop={isValidDropPosition}
+                  isInDropZone={isInDropZone}
+                  isMobile={isMobile}
+                  gapSize={gapSize}
+                />
+              );
+            })}
             
             {/* 그리드 밖으로 나가는 경우 빨간색 오버레이 표시 */}
             {draggedItem && hoverPosition && !isValidDropPosition && (() => {
@@ -1100,9 +1185,6 @@ function BagTabContent({ gridSize, timeRemaining, formatTime, characterData, onI
               const shapeIndex = 'shapeIndex' in draggedItem ? (draggedItem.shapeIndex || 0) : 0;
               const shape = SHAPES[volume]?.[shapeIndex] || SHAPES[1][0];
               
-              // 모바일과 데스크톱에서 다른 크기 사용
-              const cellSize = isMobile ? 28 : 48;
-              const gapSize = isMobile ? 1 : 4;
               const totalCellSize = cellSize + gapSize;
               
               const blockWidth = (Math.max(...shape.map(p => p.col)) + 1) * cellSize + Math.max(...shape.map(p => p.col)) * gapSize;
@@ -1113,60 +1195,68 @@ function BagTabContent({ gridSize, timeRemaining, formatTime, characterData, onI
               
               return (
                 <div
-                  className="absolute pointer-events-none"
+                  className="absolute pointer-events-none z-20"
                   style={{
                     left: `${left}px`,
                     top: `${top}px`,
                     width: `${blockWidth}px`,
                     height: `${blockHeight}px`,
                   }}
+                  aria-hidden="true"
                 >
                   <div 
-                    className="absolute inset-0 rounded-md md:rounded-lg border-2 border-[#FF4757] bg-[#FF4757]/10"
-                    style={{
-                      boxShadow: '0 0 15px rgba(255, 71, 87, 0.5)',
-                    }}
+                    className="absolute inset-0 rounded border-2"
+                    style={{ borderColor: 'var(--danger)', backgroundColor: 'rgba(255, 71, 87, 0.1)' }}
                   />
                 </div>
               );
             })()}
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* 하단: 여유공간 + 주변 (보조) - 모바일에서는 세로로 배치 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-        {/* 여유공간 - 미세하게 다른 배경 */}
-        <div className="space-y-2 md:space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs md:text-sm font-bold text-[#BF5AF2] tracking-wider uppercase" style={{ fontFamily: 'Inter, sans-serif' }}>MISC SPACE</h3>
-            <div className="text-[10px] md:text-xs text-[#8B92A0] font-mono font-bold">WEIGHTLESS</div>
+      {/* 중간: 여유공간 + 주변 (가방과 버리기 사이 공간 채움) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0 overflow-hidden relative z-10">
+        {/* 여유공간 */}
+        <section className="flex flex-col min-h-0 space-y-2" aria-labelledby="misc-heading">
+          <div className="flex items-center justify-between shrink-0">
+            <h3 id="misc-heading" className="text-xs font-bold tracking-wider uppercase" style={{ color: 'var(--misc)' }}>
+              여유 공간
+            </h3>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ backgroundColor: 'var(--bg-light)', color: 'var(--text-muted)' }}>
+              WEIGHTLESS
+            </span>
           </div>
-          <MiscSpaceZone onDrop={handleMiscDrop}>
+          <MiscSpaceZone onDrop={handleMiscDrop} fillHeight>
             {freeItems.length > 0 ? (
-              <div className="relative flex flex-wrap gap-2 overflow-x-auto">
+              <div className="flex flex-wrap gap-2">
                 {freeItems.map((item) => (
                   <FreeItemChip key={item.id} item={item} />
                 ))}
               </div>
             ) : (
-              <div className="flex items-center justify-center h-[100px] md:h-[120px] text-[10px] md:text-xs text-[#8B92A0]/50 font-mono">
-                No weightless items
+              <div className="flex flex-col items-center justify-center flex-1 min-h-[80px] text-xs gap-1" style={{ color: 'var(--text-muted)', opacity: 0.8 }}>
+                <span>무게 없는 아이템 없음</span>
+                <span className="opacity-70">주변에서 끌어다 놓으면 여기로 옮겨져요</span>
               </div>
             )}
           </MiscSpaceZone>
-        </div>
+        </section>
 
-        {/* 주변 - 강조된 경고 배경 */}
-        <div className="space-y-2 md:space-y-3">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <h3 className="text-xs md:text-sm font-bold text-[#FF4757] tracking-wider uppercase" style={{ fontFamily: 'Inter, sans-serif' }}>NEARBY ITEMS</h3>
-            <div className="flex items-center gap-1 md:gap-2 px-1.5 md:px-2 py-0.5 md:py-1 bg-[#FF4757]/10 border border-[#FF4757]/30 rounded-lg">
-              <AlertCircle className="w-3 h-3 md:w-3.5 md:h-3.5 text-[#FF4757] animate-pulse" />
-              <span className="text-[10px] md:text-xs text-[#FF4757] font-mono font-bold">DELETE IN {formatTime(timeRemaining)}</span>
+        {/* 주변 아이템 */}
+        <section className="flex flex-col min-h-0 space-y-2" aria-labelledby="nearby-heading">
+          <div className="flex items-center justify-between flex-wrap gap-2 shrink-0">
+            <h3 id="nearby-heading" className="text-xs font-bold tracking-wider uppercase" style={{ color: 'var(--danger)' }}>
+              주변
+            </h3>
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(255, 71, 87, 0.15)', border: '1px solid var(--danger)' }}>
+              <AlertCircle className="w-3 h-3" style={{ color: 'var(--danger)' }} />
+              <span className="text-[10px] font-bold" style={{ color: 'var(--danger)' }}>
+                {timerLabel ? `${timerLabel} · ` : ''}{formatTime(timeRemaining)} 후 삭제
+              </span>
             </div>
           </div>
-          <NearbyZone onDrop={handleNearbyDrop}>
+          <NearbyZone onDrop={handleNearbyDrop} fillHeight>
             {nearbyItemsGrouped.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {nearbyItemsGrouped.map((item) => (
@@ -1174,40 +1264,35 @@ function BagTabContent({ gridSize, timeRemaining, formatTime, characterData, onI
                 ))}
               </div>
             ) : (
-              <div className="flex items-center justify-center h-[100px] md:h-[120px] text-[10px] md:text-xs text-[#8B92A0]/50 font-mono">
-                No nearby items
+              <div className="flex flex-col items-center justify-center flex-1 min-h-[80px] text-xs gap-1" style={{ color: 'var(--text-muted)', opacity: 0.8 }}>
+                <span>주변 아이템 없음</span>
+                <span className="opacity-70">가방에서 끌어다 놓으면 여기로 옮겨져요</span>
               </div>
             )}
           </NearbyZone>
-        </div>
+        </section>
       </div>
+
+      {/* 하단: 버리기 영역 */}
+      <section className="shrink-0 relative z-10" aria-label="버리기">
+        <TrashZone onDrop={handleTrashDrop} />
+      </section>
     </div>
   );
 }
 
-export default function BagTab({ gridSize, timeRemaining, formatTime, characterData, onItemsChange, onRefresh }: BagTabProps) {
+export default function BagTab({ gridSize, timeRemaining, formatTime, timerLabel, characterData, onInventoryChange, onRefresh }: BagTabProps) {
   return (
     <DndProvider backend={HTML5Backend}>
       <BagTabContent
         gridSize={gridSize}
         timeRemaining={timeRemaining}
         formatTime={formatTime}
+        timerLabel={timerLabel}
         characterData={characterData}
-        onItemsChange={onItemsChange}
+        onInventoryChange={onInventoryChange}
         onRefresh={onRefresh}
       />
-      <style>{`
-        @keyframes flicker {
-          0%, 100% { 
-            border-color: rgba(255, 71, 87, 0.4);
-            box-shadow: 0 0 10px rgba(255, 71, 87, 0.2);
-          }
-          50% { 
-            border-color: rgba(255, 71, 87, 0.8);
-            box-shadow: 0 0 20px rgba(255, 71, 87, 0.4);
-          }
-        }
-      `}</style>
     </DndProvider>
   );
 }

@@ -24,6 +24,7 @@ wheels/
 *.egg
 
 .claude/
+.cursor/
 
 # 가상환경
 .venv/

@@ -42,8 +42,8 @@
 ## 기술 스택
 
 - **Mastodon.py**: 마스토돈 API 클라이언트
-- **gspread**: 구글 시트 연동
-- **Python 3.11+**: 타입 힌트, Pydantic 모델
+- **Supabase**: PostgreSQL 데이터베이스 (캐릭터/아이템 저장)
+- **Python 3.11+**: 타입 힌트, dataclass
 
 ---
 
@@ -77,6 +77,11 @@
 ## 환경 변수
 
 ```env
+# Supabase
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_KEY=your_service_role_key
+
+# Mastodon
 MASTODON_API_BASE_URL=https://trashpit.site
 BOT_ACCESS_TOKEN=your_access_token
 SYSTEM_ADMIN_ID=longwhile,TP_Mst
@@ -106,14 +111,14 @@ bot/
 
 ## 다음 단계
 
-- [ ] Phase 3: 웹 대시보드 구현
-- [ ] Phase 4: 전투 시스템
-- [ ] Phase 5: 퀘스트 시스템
+- [ ] Phase 3: 백엔드 API 완성
+- [ ] Phase 4: 웹 대시보드 구현
+- [ ] Phase 5: 실시간 동기화
 
 ---
 
 ## 참고
 
 - [Phase 1 - 데이터 설계](../Phase%201%20-%20데이터%20설계/)
-- [구글 시트 구조](../Phase%201%20-%20데이터%20설계/1.1%20-%20구글%20시트%20구조.md)
+- [데이터베이스 구조](../Phase%201%20-%20데이터%20설계/1.1%20-%20데이터베이스%20구조.md)
 - [아이템 마스터](../Phase%201%20-%20데이터%20설계/1.2%20-%20아이템%20마스터.md)

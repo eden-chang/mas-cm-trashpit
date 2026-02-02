@@ -26,6 +26,7 @@ load_dotenv()
 from shared.config import POLLING_INTERVAL, DEBUG_MODE
 from bot.mastodon_client import get_notifications, reply
 from bot.commands import use, transfer, discard, acquire, grant
+from bot.scheduler import start_scheduler, stop_scheduler
 from bot.logger import get_logger
 
 logger = get_logger()
@@ -101,6 +102,7 @@ def on_notification(notification: dict):
 def signal_handler(signum, frame):
     """시그널 핸들러 - Ctrl+C 등으로 봇을 안전하게 종료"""
     logger.system_event(f"봇 종료 신호를 받았습니다 (시그널: {signum})", "stop")
+    stop_scheduler()
     sys.exit(0)
 
 
@@ -190,6 +192,9 @@ def main():
             logger.system_event("봇을 시작합니다", "start")
             logger.info(f"폴링 간격: {POLLING_INTERVAL}초")
             logger.info("Ctrl+C를 눌러 종료할 수 있습니다.")
+
+            # 스케줄러 시작 (주변 아이템 자동 삭제)
+            start_scheduler()
 
             run_polling_loop()
 

@@ -1,5 +1,5 @@
+# Trashpit API 의존성
 Flask>=3.0.0
 flask-cors>=4.0.0
 python-dotenv>=1.0.0
-gspread>=5.12.0
-google-auth>=2.23.0
+supabase>=2.0.0

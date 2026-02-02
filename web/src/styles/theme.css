@@ -1,116 +1,162 @@
 @custom-variant dark (&:is(.dark *));
 
+/* KoPub Dotum (코펍돋움) */
+@font-face {
+  font-family: 'KoPub Dotum';
+  src: url('../../fonts/KoPub-Dotum-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'KoPub Dotum';
+  src: url('../../fonts/KoPub-Dotum-Medium.ttf') format('truetype');
+  font-weight: 400 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'KoPub Dotum';
+  src: url('../../fonts/KoPub-Dotum-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --font-size: 16px;
-  
-  /* ===== CORE COLORS (6가지) ===== */
-  /* 1. Primary - Neon Cyan (메인 액센트, 선택, 링크) */
-  --color-primary: #00F3FF;
-  --color-primary-rgb: 0, 243, 255;
-  
-  /* 2. Secondary - Electric Purple (보조 액센트, 스탯) */
-  --color-secondary: #BF5AF2;
-  --color-secondary-rgb: 191, 90, 242;
-  
-  /* 3. Success - Green (정상 상태, 동기화) */
-  --color-success: #00FF88;
-  --color-success-rgb: 0, 255, 136;
-  
-  /* 4. Warning - Amber (경고, 중간 상태) */
-  --color-warning: #FFB020;
-  --color-warning-rgb: 255, 176, 32;
-  
-  /* 5. Danger - Red (위험, HP, 에러) */
-  --color-danger: #FF4757;
-  --color-danger-rgb: 255, 71, 87;
-  
-  /* 6. Neutral - Gray (배경, 텍스트, 보더) */
-  --color-bg-base: #0B0E14;
-  --color-bg-raised: #1C2128;
-  --color-bg-overlay: #2A2F3A;
-  --color-text-primary: #E8EAED;
-  --color-text-secondary: #8B92A0;
-  --color-border: rgba(255, 255, 255, 0.1);
-  
-  /* ===== SEMANTIC TOKENS ===== */
-  --background: var(--color-bg-base);
-  --foreground: var(--color-text-primary);
-  --card: var(--color-bg-raised);
-  --card-foreground: var(--color-text-primary);
-  --popover: var(--color-bg-raised);
-  --popover-foreground: var(--color-text-primary);
-  --primary: var(--color-primary);
+  --font-family: 'KoPub Dotum', '코펍돋움', sans-serif;
+  --radius: 0.5rem;
+
+  /* ============================================================
+   * COLOR PALETTE - 12개 소스만 정의 (편집 시 여기만 수정)
+   * ============================================================ */
+
+  /* 배경 3종 */
+  --bg: #211c19;
+  --bg-mid: #2e2722;
+  --bg-light: #5b4c41;
+
+  /* 텍스트 */
+  --text: #edebe8;
+  --text-muted: #b3a291;
+
+  /* 시맨틱 색상 5종 (그리드/아이템/영역) */
+  --blue: #c1ac8d;      /* 파랑: 그리드 오버레이, 메인 강조 */
+  --item: #917e63;      /* 보라: 아이템, 다이얼로그 */
+  --misc: #c99d60;      /* 주황: Misc Space */
+  --danger: #ff8e47;    /* 빨강: Nearby, 무효, 경고 */
+  --success: #e0d0b1;   /* 녹색: 유효, 정상 */
+  --empty-bar: #5a534c; /* 바의 빈 부분 */
+
+  /* 보조 (용량 바 경고 등) */
+  --warn: #ffa96f;
+
+  /* Trash */
+  --trash: #9f9c97;
+
+  /* ============================================================
+   * 파생 변수 (참조만 - 수정 불필요)
+   * ============================================================ */
+  --color-bg-dark: var(--bg);
+  --color-bg-mid: var(--bg-mid);
+  --color-bg-light: var(--bg-light);
+  --color-text-primary: var(--text);
+  --color-text-secondary: var(--text-muted);
+  --color-grid-line: #2A2F3A;
+  --color-grid-overlay: var(--blue);
+  --color-grid-valid: var(--success);
+  --color-grid-invalid: var(--danger);
+  --color-item-placed: var(--item);
+  --color-misc: var(--misc);
+  --color-nearby: var(--danger);
+  --color-trash-border: #BBBBBB;
+  --color-trash-border-hover: #999999;
+  --color-trash-bg: #F0F0F0;
+  --color-trash-bg-hover: #F5F5F5;
+  --color-trash-text: #666666;
+  --color-item-fill: #000000;
+  --color-item-border: #000000;
+
+  /* App/Shadcn 호환 */
+  --color-primary: var(--blue);
+  --color-secondary: var(--item);
+  --color-success: var(--success);
+  --color-warning: var(--warn);
+  --color-danger: var(--danger);
+
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--bg-mid);
+  --card-foreground: var(--text);
+  --popover: var(--bg-mid);
+  --popover-foreground: var(--text);
+  --primary: var(--blue);
   --primary-foreground: #000000;
-  --secondary: var(--color-secondary);
+  --secondary: var(--item);
   --secondary-foreground: #FFFFFF;
-  --muted: var(--color-bg-overlay);
-  --muted-foreground: var(--color-text-secondary);
-  --accent: var(--color-primary);
+  --muted: var(--bg-light);
+  --muted-foreground: var(--text-muted);
+  --accent: var(--blue);
   --accent-foreground: #000000;
-  --destructive: var(--color-danger);
+  --destructive: var(--danger);
   --destructive-foreground: #ffffff;
-  --border: var(--color-border);
+  --border: #FFFFFF14;
   --input: transparent;
-  --input-background: rgba(28, 33, 40, 0.5);
-  --switch-background: var(--color-bg-overlay);
+  --ring: var(--blue);
+  --chart-1: var(--blue);
+  --chart-2: var(--item);
+  --chart-3: var(--danger);
+  --chart-4: var(--success);
+  --chart-5: var(--warn);
+  --sidebar: var(--bg-mid);
+  --sidebar-foreground: var(--text);
+  --sidebar-primary: var(--blue);
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: var(--bg);
+  --sidebar-accent-foreground: var(--text);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--blue);
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --ring: var(--color-primary);
-  --chart-1: var(--color-primary);
-  --chart-2: var(--color-secondary);
-  --chart-3: var(--color-danger);
-  --chart-4: var(--color-success);
-  --chart-5: var(--color-warning);
-  --radius: 0.5rem;
-  --sidebar: var(--color-bg-raised);
-  --sidebar-foreground: var(--color-text-primary);
-  --sidebar-primary: var(--color-primary);
-  --sidebar-primary-foreground: #000000;
-  --sidebar-accent: var(--color-bg-base);
-  --sidebar-accent-foreground: var(--color-text-primary);
-  --sidebar-border: var(--color-border);
-  --sidebar-ring: var(--color-primary);
 }
 
 .dark {
-  --background: var(--color-bg-base);
-  --foreground: var(--color-text-primary);
-  --card: var(--color-bg-raised);
-  --card-foreground: var(--color-text-primary);
-  --popover: var(--color-bg-raised);
-  --popover-foreground: var(--color-text-primary);
-  --primary: var(--color-primary);
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--bg-mid);
+  --card-foreground: var(--text);
+  --popover: var(--bg-mid);
+  --popover-foreground: var(--text);
+  --primary: var(--blue);
   --primary-foreground: #000000;
-  --secondary: var(--color-secondary);
+  --secondary: var(--item);
   --secondary-foreground: #FFFFFF;
-  --muted: var(--color-bg-overlay);
-  --muted-foreground: var(--color-text-secondary);
-  --accent: var(--color-primary);
+  --muted: var(--bg-light);
+  --muted-foreground: var(--text-muted);
+  --accent: var(--blue);
   --accent-foreground: #000000;
-  --destructive: var(--color-danger);
+  --destructive: var(--danger);
   --destructive-foreground: #FFFFFF;
-  --border: var(--color-border);
-  --input: rgba(28, 33, 40, 0.5);
-  --ring: var(--color-primary);
-  --font-weight-medium: 500;
-  --font-weight-normal: 400;
-  --chart-1: var(--color-primary);
-  --chart-2: var(--color-secondary);
-  --chart-3: var(--color-danger);
-  --chart-4: var(--color-success);
-  --chart-5: var(--color-warning);
-  --sidebar: var(--color-bg-raised);
-  --sidebar-foreground: var(--color-text-primary);
-  --sidebar-primary: var(--color-primary);
+  --border: #FFFFFF14;
+  --input: #1C212880;
+  --ring: var(--blue);
+  --chart-1: var(--blue);
+  --chart-2: var(--item);
+  --chart-3: var(--danger);
+  --chart-4: var(--success);
+  --chart-5: var(--warn);
+  --sidebar: var(--bg-mid);
+  --sidebar-foreground: var(--text);
+  --sidebar-primary: var(--blue);
   --sidebar-primary-foreground: #000000;
-  --sidebar-accent: var(--color-bg-base);
-  --sidebar-accent-foreground: var(--color-text-primary);
-  --sidebar-border: var(--color-border);
-  --sidebar-ring: var(--color-primary);
+  --sidebar-accent: var(--bg);
+  --sidebar-accent-foreground: var(--text);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--blue);
 }
 
 @theme inline {
-  /* Semantic tokens */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -130,31 +176,25 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  
-  /* Core 6 colors - 간단하게 사용하기 위한 별칭 */
-  --color-cyan: var(--color-primary);
-  --color-purple: var(--color-secondary);
-  --color-success: var(--color-success);
-  --color-warning: var(--color-warning);
-  --color-danger: var(--color-danger);
-  
-  /* Background variations */
-  --color-bg-base: var(--color-bg-base);
-  --color-bg-raised: var(--color-bg-raised);
-  --color-bg-overlay: var(--color-bg-overlay);
-  
-  /* Text variations */
+  --color-bg-dark: var(--color-bg-dark);
+  --color-bg-mid: var(--color-bg-mid);
+  --color-bg-light: var(--color-bg-light);
+  --color-grid-line: var(--color-grid-line);
+  --color-grid-overlay: var(--color-grid-overlay);
+  --color-item-placed: var(--color-item-placed);
+  --color-misc: var(--color-misc);
+  --color-nearby: var(--color-nearby);
   --color-text-primary: var(--color-text-primary);
   --color-text-secondary: var(--color-text-secondary);
-  
-  /* Charts */
+  --color-item-fill: var(--color-item-fill);
+  --color-item-border: var(--color-item-border);
+  --color-cyan: var(--blue);
+  --color-purple: var(--item);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  
-  /* Radius */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -168,56 +208,22 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-family);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
-
-  /**
-  * Default typography styles for HTML elements (h1-h4, p, label, button, input).
-  * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.
-  */
 
   html {
     font-size: var(--font-size);
+    font-family: var(--font-family);
   }
 
-  h1 {
-    font-size: var(--text-2xl);
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
-  }
-
-  h2 {
-    font-size: var(--text-xl);
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
-  }
-
-  h3 {
-    font-size: var(--text-lg);
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
-  }
-
-  h4 {
-    font-size: var(--text-base);
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
-  }
-
-  label {
-    font-size: var(--text-base);
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
-  }
-
-  button {
-    font-size: var(--text-base);
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
-  }
-
-  input {
-    font-size: var(--text-base);
-    font-weight: var(--font-weight-normal);
-    line-height: 1.5;
-  }
+  h1 { font-size: var(--text-2xl); font-weight: var(--font-weight-medium); line-height: 1.5; }
+  h2 { font-size: var(--text-xl); font-weight: var(--font-weight-medium); line-height: 1.5; }
+  h3 { font-size: var(--text-lg); font-weight: var(--font-weight-medium); line-height: 1.5; }
+  h4 { font-size: var(--text-base); font-weight: var(--font-weight-medium); line-height: 1.5; }
+  label { font-size: var(--text-base); font-weight: var(--font-weight-medium); line-height: 1.5; }
+  button { font-size: var(--text-base); font-weight: var(--font-weight-medium); line-height: 1.5; }
+  input { font-size: var(--text-base); font-weight: var(--font-weight-normal); line-height: 1.5; }
 }

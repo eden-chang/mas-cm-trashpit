@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import type { Item, NearbyItem, QuantityDialogState } from '../types';
 
@@ -14,6 +15,16 @@ export function QuantityDialog({
   onQuantityChange,
   onConfirm,
 }: QuantityDialogProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!state.isOpen) return;
+    const id = setTimeout(() => {
+      dialogRef.current?.querySelector<HTMLElement>('button:not([disabled]), input')?.focus();
+    }, 0);
+    return () => clearTimeout(id);
+  }, [state.isOpen]);
+
   if (!state.isOpen || !state.item) {
     return null;
   }
@@ -22,46 +33,48 @@ export function QuantityDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(11, 14, 20, 0.9)' }}
+      ref={dialogRef}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[var(--color-bg-dark)]/90"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="quantity-dialog-title"
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          onClose();
+        }
+      }}
     >
-      <div className="bg-[#1C2128] border-2 border-[#BF5AF2] rounded-xl p-6 max-w-sm w-full shadow-[0_0_40px_rgba(191,90,242,0.5)] relative">
-        {/* Glassmorphism effect */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#BF5AF2]/10 to-transparent rounded-xl pointer-events-none" />
-
+      <div className="bg-[var(--color-bg-mid)] border border-[var(--color-item-placed)]/50 rounded-xl p-6 max-w-sm w-full relative">
         <div className="relative space-y-4">
-          {/* Header */}
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-[#BF5AF2] uppercase tracking-wider">
+            <h3 id="quantity-dialog-title" className="text-lg font-bold text-[var(--color-item-placed)] uppercase tracking-wider">
               수량 선택
             </h3>
             <button
               onClick={onClose}
-              className="text-[#8B92A0] hover:text-[#BF5AF2] transition-colors"
+              className="p-1 rounded text-[var(--color-text-secondary)] hover:text-[var(--color-item-placed)] transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--color-item-placed)]"
+              aria-label="닫기"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
-
-          {/* Item info */}
-          <div className="bg-[#0B0E14]/50 border border-[#BF5AF2]/30 rounded-lg p-4">
-            <div className="text-sm text-[#E8EAED] font-medium mb-2">
+          <div className="bg-[var(--color-bg-dark)]/50 border border-[var(--color-item-placed)]/30 rounded-lg p-4">
+            <div className="text-sm text-[var(--color-text-primary)] font-medium mb-2">
               {item.name}
             </div>
-            <div className="text-xs text-[#8B92A0] font-mono">
+            <div className="text-xs text-[var(--color-text-secondary)]">
               보유 수량: {maxQuantity}개
             </div>
           </div>
-
-          {/* Quantity selector */}
           <div className="space-y-2">
-            <label className="text-sm text-[#E8EAED] font-medium">
+            <label className="text-sm text-[var(--color-text-primary)] font-medium">
               이동할 수량
             </label>
             <div className="flex items-center gap-3">
               <button
                 onClick={() => onQuantityChange(Math.max(1, selectedQuantity - 1))}
-                className="px-4 py-2 bg-[#2A2F3A] border border-[#BF5AF2]/30 rounded-lg text-[#BF5AF2] font-bold hover:bg-[#BF5AF2]/20 hover:border-[#BF5AF2] transition-all"
+                className="px-4 py-2 bg-[var(--color-bg-light)] border border-[var(--color-item-placed)]/30 rounded-lg text-[var(--color-item-placed)] font-bold hover:bg-[var(--color-item-placed)]/20 hover:border-[var(--color-item-placed)] transition-all"
               >
                 -
               </button>
@@ -77,36 +90,34 @@ export function QuantityDialog({
                   );
                   onQuantityChange(value);
                 }}
-                className="flex-1 px-4 py-2 bg-[#0B0E14] border border-[#BF5AF2]/30 rounded-lg text-center text-[#E8EAED] font-mono font-bold focus:border-[#BF5AF2] focus:outline-none"
+                className="flex-1 px-4 py-2 bg-[var(--color-bg-dark)] border border-[var(--color-item-placed)]/30 rounded-lg text-center text-[var(--color-text-primary)] font-bold focus:border-[var(--color-item-placed)] focus:outline-none"
               />
               <button
                 onClick={() =>
                   onQuantityChange(Math.min(maxQuantity, selectedQuantity + 1))
                 }
-                className="px-4 py-2 bg-[#2A2F3A] border border-[#BF5AF2]/30 rounded-lg text-[#BF5AF2] font-bold hover:bg-[#BF5AF2]/20 hover:border-[#BF5AF2] transition-all"
+                className="px-4 py-2 bg-[var(--color-bg-light)] border border-[var(--color-item-placed)]/30 rounded-lg text-[var(--color-item-placed)] font-bold hover:bg-[var(--color-item-placed)]/20 hover:border-[var(--color-item-placed)] transition-all"
               >
                 +
               </button>
             </div>
             <button
               onClick={() => onQuantityChange(maxQuantity)}
-              className="w-full py-1.5 text-xs text-[#8B92A0] hover:text-[#BF5AF2] transition-colors font-mono"
+              className="w-full py-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-item-placed)] transition-colors"
             >
               전체 선택
             </button>
           </div>
-
-          {/* Buttons */}
           <div className="flex gap-3 pt-2">
             <button
               onClick={onClose}
-              className="flex-1 px-4 py-2.5 bg-[#2A2F3A] border border-[#8B92A0]/30 rounded-lg text-[#8B92A0] font-bold hover:bg-[#8B92A0]/20 hover:border-[#8B92A0] transition-all"
+              className="flex-1 px-4 py-2.5 bg-[var(--color-bg-light)] border border-[var(--color-text-secondary)]/30 rounded-lg text-[var(--color-text-secondary)] font-bold hover:bg-[var(--color-text-secondary)]/20 hover:border-[var(--color-text-secondary)] transition-all"
             >
               취소
             </button>
             <button
               onClick={onConfirm}
-              className="flex-1 px-4 py-2.5 bg-[#BF5AF2]/20 border border-[#BF5AF2] rounded-lg text-[#BF5AF2] font-bold hover:bg-[#BF5AF2]/30 hover:shadow-[0_0_20px_rgba(191,90,242,0.6)] transition-all"
+              className="flex-1 px-4 py-2.5 bg-[var(--color-item-placed)]/20 border border-[var(--color-item-placed)] rounded-lg text-[var(--color-item-placed)] font-bold hover:bg-[var(--color-item-placed)]/30 transition-all"
             >
               확인
             </button>

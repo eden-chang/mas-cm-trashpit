@@ -45,14 +45,13 @@ export function getShape(volume: number, shapeIndex: number): ShapePattern {
 }
 
 /**
- * Get item colors based on type
+ * Get item colors - 통일된 검정 배경 (아이템 내부 비텍스트는 검정)
+ * 텍스트 색상만 구분용으로 사용
  */
-export function getItemColors(type?: 'consumable' | 'equipment') {
-  if (type === 'consumable') {
-    return { border: '#00F3FF', glow: 'rgba(0, 243, 255, 0.4)', bg: 'rgba(0, 243, 255, 0.15)' };
-  }
-  if (type === 'equipment') {
-    return { border: '#FFB020', glow: 'rgba(255, 176, 32, 0.4)', bg: 'rgba(255, 176, 32, 0.15)' };
-  }
-  return { border: '#BF5AF2', glow: 'rgba(191, 90, 242, 0.4)', bg: 'rgba(191, 90, 242, 0.15)' };
+export function getItemColors(_type?: 'consumable' | 'equipment') {
+  return {
+    fill: 'var(--color-item-fill)',
+    border: 'var(--color-item-border)',
+    textColor: 'var(--color-item-placed)',
+  };
 }

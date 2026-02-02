@@ -31,13 +31,13 @@ export function FreeItemChip({ item }: FreeItemChipProps) {
   return (
     <div
       ref={drag}
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-[#2A2F3A]/50 backdrop-blur-sm border border-[#BF5AF2]/30 rounded-lg text-xs text-[#E8EAED] cursor-move hover:bg-[#BF5AF2]/20 hover:border-[#BF5AF2] hover:shadow-[0_0_10px_rgba(191,90,242,0.4)] transition-all font-medium ${
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-[var(--color-bg-light)]/50 border border-[var(--color-misc)]/25 rounded-lg text-xs text-[var(--color-text-primary)] cursor-move hover:border-[var(--color-misc)]/60 transition-all font-medium ${
         isDragging ? 'opacity-30' : 'opacity-100'
       }`}
     >
       {getIcon(item.icon)}
       <span>{item.name}</span>
-      <span className="text-[#BF5AF2] font-mono text-[10px]">×{item.count}</span>
+      <span className="text-[var(--color-misc)] text-[10px]">×{item.count}</span>
     </div>
   );
 }

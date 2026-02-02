@@ -28,11 +28,10 @@ def get_bool(key: str, default=False) -> bool:
     return val in ("true", "1", "yes", "on")
 
 # ============================================================
-# Google Sheets
+# Supabase
 # ============================================================
-SHEET_ID = get_env("SHEET_ID", required=True)
-_creds_file = get_env("GOOGLE_CREDENTIALS_PATH", "credentials.json")
-GOOGLE_CREDENTIALS_PATH = str(BASE_DIR / _creds_file)
+SUPABASE_URL = get_env("SUPABASE_URL", required=True)
+SUPABASE_SERVICE_KEY = get_env("SUPABASE_SERVICE_KEY", required=True)
 
 # ============================================================
 # Mastodon API

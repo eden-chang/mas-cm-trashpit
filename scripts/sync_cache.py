@@ -2,10 +2,7 @@
 캐시 동기화/프리로드 스크립트
 
 API 서버나 봇이 메모리 캐시를 사용하는 경우,
-구글 시트 데이터를 미리 로드하여 캐시를 워밍업합니다.
-
-현재 구조에서는 sheet_service가 매 요청마다 시트를 읽으므로,
-이 스크립트는 추후 Redis 등 외부 캐시 도입 시 활용할 수 있습니다.
+Supabase 데이터를 미리 로드하여 캐시를 워밍업합니다.
 
 사용 예:
     python scripts/sync_cache.py
@@ -33,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 def preload_data() -> dict:
     """
-    구글 시트 데이터를 프리로드하고 아이템 캐시를 새로고침합니다.
+    Supabase 데이터를 프리로드하고 아이템 캐시를 새로고침합니다.
 
     Returns:
         로드된 데이터 요약

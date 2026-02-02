@@ -25,6 +25,17 @@ def get_character(name: str):
 
     bag_used, bag_available = _bag_stats(char)
 
+    # 배치 정보 변환
+    bag_layout = [
+        {
+            "name": l.name,
+            "row": l.row,
+            "col": l.col,
+            "shapeIndex": l.shapeIndex,
+        }
+        for l in char.bag_layout
+    ]
+
     return jsonify({
         "name": char.name,
         "mastodon_id": char.mastodon_id,
@@ -32,28 +43,40 @@ def get_character(name: str):
         "health": char.health,
         "strength": char.strength,
         "luck": char.luck,
+        "hp": char.hp,
+        "max_hp": char.max_hp,
         "bag_capacity": char.bag_capacity,
         "bag_used": bag_used,
         "bag_available": bag_available,
         "bag_items": enrich_items(char.bag_items),
         "misc_items": [{"name": i.name, "quantity": i.quantity} for i in char.misc_items],
         "nearby_items": enrich_items(char.nearby_items),
+        "bag_layout": bag_layout,
     })
 
 
 @bp.route("/characters")
 def list_characters():
-    """전체 캐릭터 목록 조회"""
+    """전체 캐릭터 목록 조회 (이름순 정렬)"""
     from api.services.sheet_service import get_all_characters
 
     characters = get_all_characters()
 
-    return jsonify([
-        {
-            "name": char.name,
-            "bag_capacity": char.bag_capacity,
-            "bag_used": char.bag_used,
-            "nearby_count": len(char.nearby_items),
-        }
-        for char in characters
-    ])
+    # 명시적으로 딕셔너리 생성
+    result = []
+    for char in characters:
+        # bag_used 계산: 아이템 마스터에서 부피 정보를 가져와서 계산
+        bag_items_dict = [{"name": i.name, "quantity": i.quantity} for i in char.bag_items]
+        bag_used = calculate_total_volume(bag_items_dict)
+        
+        result.append({
+            "name": str(char.name),
+            "bag_capacity": int(char.bag_capacity),
+            "bag_used": int(bag_used),
+            "nearby_count": int(len(char.nearby_items)),
+            "health": int(char.health),
+            "hp": int(char.hp),
+            "max_hp": int(char.max_hp),
+        })
+    
+    return jsonify(result)

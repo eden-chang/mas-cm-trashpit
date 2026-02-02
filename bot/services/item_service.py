@@ -1,6 +1,6 @@
-"""아이템 서비스 (상점 시트 - 캐시 적용)
+"""아이템 서비스 (Supabase 버전 - 캐시 적용)
 
-상점 데이터는 자주 변경되지 않으므로 CACHE_TTL(3600초) 캐싱 적용.
+아이템 데이터는 자주 변경되지 않으므로 캐싱 적용.
 """
 
 import sys
@@ -10,8 +10,7 @@ from typing import Optional, Dict, Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from shared.google_sheets import get_worksheet
-from shared.constants import SHEET_NAMES, ShopColumns
+from shared.supabase_client import get_supabase, TABLE_ITEMS
 from shared.config import CACHE_TTL
 from bot.logger import get_logger
 
@@ -28,31 +27,31 @@ def _is_cache_valid() -> bool:
 
 
 def _load_items_cache() -> None:
-    """상점 시트에서 전체 아이템 로드"""
+    """Supabase에서 전체 아이템 로드"""
     global _items_cache, _cache_time
     try:
-        ws = get_worksheet(SHEET_NAMES['SHOP'])
-        records = ws.get_all_records()[1:]  # 2행 정보행 스킵
+        supabase = get_supabase()
+        response = supabase.table(TABLE_ITEMS).select("*").execute()
 
         _items_cache = {}
-        for record in records:
-            name = (record.get("아이템명") or "").strip()
+        for row in response.data:
+            name = (row.get("name") or "").strip()
             if not name:
                 continue
 
-            raw_volume = record.get("부피")
+            raw_size = row.get("size")
             try:
-                volume = int(raw_volume) if raw_volume not in (None, "") else 0
+                volume = int(raw_size) if raw_size is not None else 0
             except (ValueError, TypeError):
                 volume = 0
 
             _items_cache[name] = {
                 'name': name,
-                'price': record.get("가격", ""),
-                'desc': record.get("설명", ""),
-                'use_msg': record.get("사용문구", ""),
-                'stat': record.get("스탯", ""),
-                'value': record.get("수치", ""),
+                'price': row.get("price", ""),
+                'desc': row.get("description", ""),
+                'use_msg': row.get("use_script", ""),
+                'stat': row.get("change_stats", ""),
+                'value': row.get("change_value", ""),
                 'volume': max(0, volume),
             }
 

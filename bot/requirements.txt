@@ -1,4 +1,6 @@
+# Trashpit Bot 의존성
 Mastodon.py>=1.8.0
 python-dotenv>=1.0.0
-gspread>=5.12.0
-google-auth>=2.23.0
+supabase>=2.0.0
+APScheduler>=3.10.0
+pytz>=2024.1  # 타임존 지원 (Python 3.8 호환)

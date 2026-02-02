@@ -29,18 +29,36 @@ class ItemInfo:
 
 
 @dataclass
+class LayoutItem:
+    """아이템 배치 정보"""
+    name: str
+    row: int
+    col: int
+    shapeIndex: int = 0
+
+
+@dataclass
 class Character:
     """캐릭터 정보"""
     name: str
     mastodon_id: str
     faction: str = ""  # 진영 (웨가/스카이)
-    health: int = 0
+    health: int = 0  # 체력 스탯
     strength: int = 1
     luck: int = 0
+    hp: int = 0  # 현재 HP
+    points: int = 0  # 소지금 (포인트)
     bag_items: list[Item] = field(default_factory=list)
     misc_items: list[Item] = field(default_factory=list)
     nearby_items: list[Item] = field(default_factory=list)
+    bag_layout: list[LayoutItem] = field(default_factory=list)  # 아이템 그리드 배치 정보
     row_index: int = 0  # 시트에서의 행 번호
+    updated_at: Optional[str] = None  # 마지막 수정 시각 (ISO 8601)
+
+    @property
+    def max_hp(self) -> int:
+        """최대 HP = 체력 * 10"""
+        return self.health * 10
 
     @property
     def bag_capacity(self) -> int:
