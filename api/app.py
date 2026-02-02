@@ -1,9 +1,12 @@
 """Flask API 진입점"""
 
+import os
 import sys
 
-# 상위 디렉토리 import를 위한 경로 추가
-sys.path.insert(0, str(__file__).rsplit("\\", 2)[0])
+# 프로젝트 루트를 path에 추가 (Railway 등에서 api/ 폴더를 루트로 실행해도 동작)
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 
 from flask import Flask
 from flask_cors import CORS
