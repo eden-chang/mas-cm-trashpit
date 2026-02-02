@@ -36,8 +36,17 @@ export class ApiError extends Error {
 }
 
 /** 전체 캐릭터 목록 */
-export function getCharacters(): Promise<CharacterSummary[]> {
-  return request<CharacterSummary[]>('/api/characters');
+export async function getCharacters(): Promise<CharacterSummary[]> {
+  const data = await request<unknown>('/api/characters');
+  if (!Array.isArray(data)) {
+    throw new ApiError(
+      typeof (data as { error?: string })?.error === 'string'
+        ? (data as { error: string }).error
+        : '캐릭터 목록을 불러올 수 없습니다. API 주소를 확인해 주세요.',
+      0
+    );
+  }
+  return data as CharacterSummary[];
 }
 
 /** 캐릭터 상세 (가방·주변·여유공간·배치 포함) */
