@@ -8,6 +8,17 @@ import random
 import re
 
 
+def is_dice_expression(value_str: str) -> bool:
+    """주사위 표현식 여부 (1d6, 2d6+3, -(1d6+3) 등)."""
+    if not value_str or not isinstance(value_str, str):
+        return False
+    value_str = value_str.strip()
+    if value_str.startswith("-(") and value_str.endswith(")"):
+        inner = value_str[2:-1]
+        return bool(re.match(r"^\d+[dD]\d+([+\-]\d+)?$", inner))
+    return bool(re.match(r"^\d+[dD]\d+([+\-]\d+)?$", value_str))
+
+
 def roll_dice(dice_str: str) -> int:
     """다이스 표기법 처리
 

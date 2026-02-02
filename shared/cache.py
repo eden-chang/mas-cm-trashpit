@@ -12,9 +12,10 @@ from typing import Any, Callable, Optional
 logger = logging.getLogger(__name__)
 
 # 기본 캐시 TTL (초)
-CACHE_TTL = int(os.getenv("CACHE_TTL", "60"))  # 1분
-CACHE_TTL_ITEMS = int(os.getenv("CACHE_TTL_ITEMS", "300"))  # 아이템은 5분
-CACHE_TTL_CHARACTERS = int(os.getenv("CACHE_TTL_CHARACTERS", "30"))  # 캐릭터는 30초
+# 환경변수로 조정 가능: CACHE_TTL, CACHE_TTL_ITEMS, CACHE_TTL_CHARACTERS
+CACHE_TTL = int(os.getenv("CACHE_TTL", "60"))  # 기본 1분
+CACHE_TTL_ITEMS = int(os.getenv("CACHE_TTL_ITEMS", "300"))  # 아이템 마스터는 5분 (자주 변경되지 않음)
+CACHE_TTL_CHARACTERS = int(os.getenv("CACHE_TTL_CHARACTERS", "15"))  # 캐릭터는 15초 (자주 변경됨)
 
 # 메모리 캐시 저장소
 _cache: dict[str, tuple[Any, float]] = {}
@@ -97,10 +98,22 @@ def invalidate_cache(pattern: Optional[str] = None) -> int:
 
 
 def invalidate_character_cache(char_name: str) -> None:
-    """특정 캐릭터 관련 캐시 무효화"""
+    """특정 캐릭터 관련 캐시 무효화
+    
+    캐릭터 데이터가 변경될 때 관련된 모든 캐시를 무효화합니다.
+    """
+    # 캐릭터 이름으로 조회한 캐시 무효화 (다양한 패턴 커버)
     invalidate_cache(f"get_character_by_name:('{char_name}'")
-    invalidate_cache("get_character_by_mastodon_id:")  # ID 캐시도 무효화 (패턴 매칭)
+    invalidate_cache(f'get_character_by_name:("{char_name}"')
+    invalidate_cache(f"get_character_by_name:{char_name}")
+    
+    # 마스토돈 ID로 조회한 캐시도 무효화 (캐릭터가 어떤 ID로 조회되었는지 모르므로 전체 무효화)
+    invalidate_cache("get_character_by_mastodon_id:")
+    
+    # 전체 캐릭터 목록 캐시 무효화
     invalidate_cache("get_all_characters")
+    
+    logger.debug("캐릭터 캐시 무효화 완료: %s", char_name)
 
 
 def get_cache_stats() -> dict:

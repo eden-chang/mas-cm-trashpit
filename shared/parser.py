@@ -136,9 +136,11 @@ def parse_layout(json_str: str) -> list[LayoutItem]:
 
     JSON 형식:
     [
-      {"name": "생수", "row": 0, "col": 0, "shapeIndex": 0},
-      {"name": "붕대", "row": 1, "col": 0, "shapeIndex": 1}
+      {"id": "i-123-0", "name": "생수", "row": 0, "col": 0, "shapeIndex": 0},
+      {"id": "i-123-1", "name": "붕대", "row": 1, "col": 0, "shapeIndex": 1}
     ]
+    
+    id 필드는 선택적이며, 같은 이름의 아이템이 여러 위치에 있을 때 구분용.
     """
     if not json_str or not json_str.strip():
         return []
@@ -160,6 +162,7 @@ def parse_layout(json_str: str) -> list[LayoutItem]:
                 row=int(item.get("row", 0)),
                 col=int(item.get("col", 0)),
                 shapeIndex=int(item.get("shapeIndex", 0)),
+                id=item.get("id"),  # 인스턴스 ID (선택적)
             ))
         return result
     except (json.JSONDecodeError, TypeError, ValueError) as e:
@@ -171,6 +174,7 @@ def serialize_layout(layout: Union[list[dict], list[LayoutItem]]) -> str:
     """배치 리스트를 JSON 문자열로 직렬화
 
     dict 또는 LayoutItem 객체 모두 지원.
+    id 필드가 있으면 포함됨.
     """
     if not layout:
         return ""
@@ -178,19 +182,25 @@ def serialize_layout(layout: Union[list[dict], list[LayoutItem]]) -> str:
     result = []
     for item in layout:
         if isinstance(item, dict):
-            result.append({
+            entry = {
                 "name": item.get("name", ""),
                 "row": item.get("row", 0),
                 "col": item.get("col", 0),
                 "shapeIndex": item.get("shapeIndex", 0),
-            })
+            }
+            if item.get("id"):
+                entry["id"] = item["id"]
+            result.append(entry)
         else:
-            result.append({
+            entry = {
                 "name": item.name,
                 "row": item.row,
                 "col": item.col,
                 "shapeIndex": item.shapeIndex,
-            })
+            }
+            if item.id:
+                entry["id"] = item.id
+            result.append(entry)
 
     return json.dumps(result, ensure_ascii=False)
 
@@ -204,9 +214,11 @@ def parse_json_layout(data: Optional[list]) -> list[LayoutItem]:
 
     Supabase 형식 (arrange 컬럼):
     [
-      {"name": "생수", "row": 0, "col": 0, "shapeIndex": 0},
-      {"name": "붕대", "row": 1, "col": 0, "shapeIndex": 1}
+      {"id": "i-123-0", "name": "생수", "row": 0, "col": 0, "shapeIndex": 0},
+      {"id": "i-123-1", "name": "붕대", "row": 1, "col": 0, "shapeIndex": 1}
     ]
+    
+    id 필드는 선택적이며, 같은 이름의 아이템이 여러 위치에 있을 때 구분용.
     """
     if not data or not isinstance(data, list):
         return []
@@ -224,6 +236,7 @@ def parse_json_layout(data: Optional[list]) -> list[LayoutItem]:
                 row=int(item.get("row", 0)),
                 col=int(item.get("col", 0)),
                 shapeIndex=int(item.get("shapeIndex", 0)),
+                id=item.get("id"),  # 인스턴스 ID (선택적)
             ))
         except (ValueError, TypeError) as e:
             logger.warning("배치 항목 파싱 실패: %s, %s", item, e)
@@ -235,7 +248,8 @@ def parse_json_layout(data: Optional[list]) -> list[LayoutItem]:
 def serialize_json_layout(layout: Optional[Union[list[dict], list[LayoutItem]]]) -> Optional[list]:
     """배치 리스트를 Supabase JSON 배열로 직렬화
 
-    반환: [{"name": "생수", "row": 0, "col": 0, "shapeIndex": 0}, ...] 또는 None
+    반환: [{"id": "i-123-0", "name": "생수", "row": 0, "col": 0, "shapeIndex": 0}, ...] 또는 None
+    id 필드는 존재할 경우에만 포함됨.
     """
     if not layout:
         return None
@@ -243,18 +257,26 @@ def serialize_json_layout(layout: Optional[Union[list[dict], list[LayoutItem]]])
     result = []
     for item in layout:
         if isinstance(item, dict):
-            result.append({
+            entry = {
                 "name": item.get("name", ""),
                 "row": item.get("row", 0),
                 "col": item.get("col", 0),
                 "shapeIndex": item.get("shapeIndex", 0),
-            })
+            }
+            # id 필드가 있으면 포함
+            if item.get("id"):
+                entry["id"] = item["id"]
+            result.append(entry)
         else:
-            result.append({
+            entry = {
                 "name": item.name,
                 "row": item.row,
                 "col": item.col,
                 "shapeIndex": item.shapeIndex,
-            })
+            }
+            # id 필드가 있으면 포함
+            if item.id:
+                entry["id"] = item.id
+            result.append(entry)
 
     return result if result else None

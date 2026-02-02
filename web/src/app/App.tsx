@@ -516,7 +516,7 @@ export default function App() {
 
             {/* 안내 문구 */}
             <p className="text-[10px] leading-tight" style={{ color: 'var(--danger)' }}>
-              동기화 버튼은 신중하게 수정한 후, 한번만 눌러주세요. 업데이트 한도에 걸리면 수정 사항이 반영되지 않습니다.
+             동기화 버튼은 수정을 모두 마치고 딱 한번만 눌러주세요! 업데이트 한도에 걸리면 수정 사항이 반영되지 않습니다.
             </p>
 
             {/* Sync to Cloud button — 수정사항 있을 때만 "변경사항 동기화!" + 깜빡임 */}

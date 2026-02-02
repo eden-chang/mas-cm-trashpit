@@ -1,17 +1,22 @@
 #!/usr/bin/env python
-"""구글 시트 ↔ 웹사이트 연동 테스트 러너
+"""Supabase ↔ API ↔ 웹 · 봇–Supabase 연동 테스트 러너
 
-이 스크립트는 Phase 4 연동 검증을 위한 모든 테스트를 실행합니다.
+이 스크립트는 Phase 4 연동 검증 및 봇–Supabase 연결성 테스트를 실행합니다.
 
 사용법:
-    python scripts/run_integration_tests.py           # 읽기 전용 테스트
-    python scripts/run_integration_tests.py --write   # 쓰기 포함 테스트
-    python scripts/run_integration_tests.py --all     # 전체 테스트
+    python scripts/run_integration_tests.py             # 읽기 전용 테스트
+    python scripts/run_integration_tests.py --write    # 쓰기 포함 테스트
+    python scripts/run_integration_tests.py --all       # 전체 테스트 (쓰기 포함)
+    python scripts/run_integration_tests.py --bot       # 봇–Supabase(–API) 테스트 추가
 
 환경변수:
-    TEST_API_BASE      - API 기본 URL (기본: http://localhost:5000/api)
-    TEST_CHARACTER     - 테스트용 캐릭터 이름
-    ENABLE_WRITE_TESTS - 쓰기 테스트 활성화 (true/false)
+    TEST_API_BASE           - API 기본 URL (기본: http://localhost:5000/api)
+    TEST_CHARACTER           - 테스트용 캐릭터 이름
+    ENABLE_WRITE_TESTS       - 쓰기 테스트 활성화 (true/false)
+    ENABLE_BOT_SUPABASE_TESTS - 봇–Supabase 테스트 활성화 (--bot 시 자동 true)
+    TEST_MASTODON_ID         - 봇 테스트용 캐릭터의 마스토돈 ID
+    TEST_ITEM                - 봇 테스트용 아이템명
+    TEST_CHARACTER_RECEIVER  - 봇 양도 테스트용 수신자 캐릭터 (선택)
 """
 
 import os
@@ -96,14 +101,21 @@ def main():
     parser.add_argument("--api-base", default=None, help="API 기본 URL")
     parser.add_argument("--character", default=None, help="테스트 캐릭터 이름")
     parser.add_argument("--skip-checks", action="store_true", help="사전 검사 스킵")
+    parser.add_argument("--bot", action="store_true", help="봇–Supabase(–API) 연결성 테스트 포함")
     args = parser.parse_args()
 
     # 환경 설정
     api_base = args.api_base or os.getenv("TEST_API_BASE", DEFAULT_API_BASE)
     test_character = args.character or os.getenv("TEST_CHARACTER")
     enable_write = args.write or args.all
+    enable_bot = args.bot
 
-    print_header("구글 시트 ↔ 웹사이트 연동 테스트")
+    if enable_bot:
+        os.environ["ENABLE_BOT_SUPABASE_TESTS"] = "true"
+        if test_character:
+            os.environ["TEST_CHARACTER"] = test_character
+
+    print_header("Supabase ↔ API ↔ 웹 · 봇 연동 테스트")
     print()
     print("  Phase 4 연동 검증 테스트를 실행합니다.")
     print()
@@ -193,6 +205,23 @@ def main():
     cache_result = run_tests("test_cache.py")
 
     # ========================================
+    # 5. 봇–Supabase(–API) 테스트 (옵션)
+    # ========================================
+    bot_result = 0
+    if enable_bot:
+        print_header("5. 봇–Supabase(–API) 연결성 테스트")
+        print()
+        print("  봇 명령 반영 → Supabase 확인, E2E 시 API 조회 일치 확인...")
+        print("  (TEST_MASTODON_ID, TEST_ITEM 등 미설정 시 해당 테스트 스킵)")
+        print()
+
+        bot_result = run_tests("test_bot_supabase_connection.py")
+
+        if bot_result != 0:
+            print()
+            print("  ⚠ 일부 봇–Supabase 테스트 실패")
+
+    # ========================================
     # 결과 요약
     # ========================================
     print_header("테스트 결과 요약")
@@ -200,11 +229,15 @@ def main():
     all_passed = read_result == 0 and cache_result == 0
     if enable_write:
         all_passed = all_passed and write_result == 0
+    if enable_bot:
+        all_passed = all_passed and bot_result == 0
 
     print_status("읽기 테스트", read_result == 0)
     print_status("캐시 테스트", cache_result == 0)
     if enable_write:
         print_status("쓰기 테스트", write_result == 0)
+    if enable_bot:
+        print_status("봇–Supabase 테스트", bot_result == 0)
 
     print()
     if all_passed:

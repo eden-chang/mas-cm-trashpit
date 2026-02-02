@@ -2,71 +2,64 @@
 
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import List, Dict
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from shared.constants import ManagementColumns
-from bot.services.character_service import get_character_by_mastodon_id
-from bot.services.item_service import get_item_info
-from bot.services.inventory_service import (
-    remove_item,
-    find_item_location,
-    get_item_count,
-    update_stat,
-)
-from bot.utils.dice import roll_dice
+from shared.constants import ErrorMessages
+from bot.services.use_item_service import use_item
+from bot.utils.decorators import require_character
+from bot.utils.validation import validate_item_name
+from bot.logger import get_logger
 
-# 아이템 스탯명 -> 관리 시트 컬럼 인덱스
-_STAT_COLUMN = {
-    "체력": ManagementColumns.HEALTH,
-    "근력": ManagementColumns.STRENGTH,
-    "행운": ManagementColumns.LUCK,
-}
+logger = get_logger()
 
-def handle(status_id: str, user: str, args: list) -> str:
-    """아이템 사용 처리"""
-    if not args:
-        return f"@{user} 사용법: [사용/아이템명]"
 
-    item_name = args[0].strip()
+@require_character
+def handle(status_id: str, user: str, character: Dict, args: List[str]) -> str:
+    """아이템 사용 처리
     
-    # 1. 캐릭터 조회
-    character = get_character_by_mastodon_id(user)
-    if not character:
-        return f"@{user} 등록된 캐릭터를 찾을 수 없습니다."
+    Args:
+        status_id: 마스토돈 상태 ID
+        user: 마스토돈 사용자 ID
+        character: 캐릭터 정보 (데코레이터가 자동 주입)
+        args: 명령어 인자 [아이템명]
+        
+    Returns:
+        응답 메시지
+    """
+    # 1. 인자 검증
+    if not args:
+        return ErrorMessages.INVALID_ITEM_NAME.format(user=user, command="사용")
+    
+    item_name = args[0].strip()
+    is_valid, error_msg = validate_item_name(item_name)
+    if not is_valid:
+        return f"@{user} {error_msg}"
     
     char_name = character['name']
-
-    # 2. 소지 여부 확인
-    location = find_item_location(char_name, item_name)
-    if not location:
-        return f"@{user} '{item_name}'을(를) 소지하고 있지 않습니다."
-
-    # 3. 아이템 정보 조회
-    item_info = get_item_info(item_name)
-    if not item_info:
-        return f"@{user} '{item_name}' 정보를 찾을 수 없습니다."
-
-    # 4. 사용 (차감 후 효과 적용, 다이스 표현식 지원)
-    if remove_item(char_name, item_name, 1, location):
-        applied_delta: Optional[int] = None
-        stat_col = _STAT_COLUMN.get((item_info.get("stat") or "").strip())
-        value_raw = item_info.get("value")
-        if stat_col is not None and value_raw not in (None, ""):
-            delta = roll_dice(str(value_raw).strip())
-            if delta != 0:
-                update_stat(char_name, stat_col, delta)
-                applied_delta = delta
-        remaining = get_item_count(char_name, item_name)
-        stat_name = (item_info.get("stat") or "").strip()
-        if applied_delta is not None and stat_name:
-            effect_msg = item_info.get("use_msg") or f"효과: {stat_name} {applied_delta:+d}"
+    
+    # 2. 비즈니스 로직 실행 (서비스 레이어)
+    result = use_item(char_name, item_name)
+    
+    # 3. 결과에 따른 응답 메시지 반환
+    if not result.success:
+        if result.error_code == "ITEM_NOT_IN_INVENTORY":
+            return ErrorMessages.ITEM_NOT_IN_INVENTORY.format(user=user, item_name=item_name)
+        elif result.error_code == "ITEM_INFO_NOT_FOUND":
+            return ErrorMessages.ITEM_INFO_NOT_FOUND.format(user=user, item_name=item_name)
+        elif result.error_code == "REMOVE_ITEM_FAILED":
+            return ErrorMessages.SYSTEM_ERROR.format(user=user)
+        elif result.error_code == "TRANSACTION_FAILED":
+            return ErrorMessages.TRANSACTION_ERROR.format(user=user)
+        elif result.error_code == "UNEXPECTED_ERROR":
+            return ErrorMessages.DB_ERROR.format(user=user)
         else:
-            effect_msg = item_info.get("use_msg") or f"효과: {stat_name} {item_info.get('value', '')}"
-        msg = f"@{user} {item_name}을(를) 사용했습니다!\n{effect_msg}"
-        if remaining > 0:
-            msg += f"\n(남은 수량: {remaining})"
-        return msg
-    else:
-        return f"@{user} 사용 처리에 실패했습니다."
+            return ErrorMessages.DB_ERROR.format(user=user)
+    
+    # 4. 성공 응답 메시지 생성
+    msg = f"@{user} {item_name}을(를) 사용했습니다!\n{result.effect_message}"
+    if result.remaining_count > 0:
+        msg += f"\n(남은 수량: {result.remaining_count})"
+    
+    return msg

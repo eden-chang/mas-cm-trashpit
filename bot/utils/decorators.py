@@ -1,6 +1,5 @@
 from functools import wraps
-from typing import Callable, Any
-from bot.mastodon_client import reply
+from typing import Callable, Any, List, Dict, Optional
 from bot.logger import get_logger
 
 logger = get_logger()
@@ -22,8 +21,39 @@ def validate_args(min_args: int, usage: str) -> Callable:
         @wraps(func)
         def wrapper(status_id: str, user: str, args: list[str], *extra_args, **kwargs) -> Any:
             if not args or len(args) < min_args or not all(arg.strip() for arg in args[:min_args]):
+                from bot.mastodon_client import reply
                 reply(status_id, f"@{user} ❌ 형식이 잘못되었습니다.\n사용법: {usage}")
                 return
             return func(status_id, user, args, *extra_args, **kwargs)
         return wrapper
     return decorator
+
+
+def require_character(func: Callable) -> Callable:
+    """캐릭터 조회를 자동으로 수행하는 데코레이터
+    
+    마스토돈 ID로 캐릭터를 조회하고, 찾지 못하면 에러 메시지를 반환합니다.
+    성공 시 character 인자를 추가하여 핸들러 함수를 호출합니다.
+    
+    Usage:
+        @require_character
+        def handle(status_id: str, user: str, character: Dict, args: List[str]) -> str:
+            char_name = character['name']
+            ...
+    """
+    @wraps(func)
+    def wrapper(status_id: str, user: str, args: List[str]) -> str:
+        from bot.services.character_service import get_character_by_mastodon_id
+        from shared.constants import ErrorMessages
+        
+        try:
+            character = get_character_by_mastodon_id(user)
+            if not character:
+                return ErrorMessages.CHARACTER_NOT_FOUND.format(user=user)
+            
+            return func(status_id, user, character, args)
+        except Exception as e:
+            logger.command_error(user, func.__name__, f"캐릭터 조회 실패: {e}", exc_info=True)
+            return ErrorMessages.DB_ERROR.format(user=user)
+    
+    return wrapper

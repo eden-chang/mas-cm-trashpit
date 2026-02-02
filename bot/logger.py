@@ -61,9 +61,16 @@ class BotLogger:
             preview += "..."
         self.logger.info(f"[응답 전송] @{username} | [{command}] | {preview}")
 
-    def command_error(self, username: str, command: str, error: str):
-        """명령어 오류 로그"""
-        self.logger.error(f"[명령어 오류] @{username} | [{command}] | {error}")
+    def command_error(self, username: str, command: str, error: str, exc_info: bool = False):
+        """명령어 오류 로그
+        
+        Args:
+            username: 사용자명
+            command: 명령어
+            error: 에러 메시지
+            exc_info: True이면 스택 트레이스 포함
+        """
+        self.logger.error(f"[명령어 오류] @{username} | [{command}] | {error}", exc_info=exc_info)
 
     def sheet_access(self, operation: str, target: str, success: bool = True):
         """시트 접근 로그"""

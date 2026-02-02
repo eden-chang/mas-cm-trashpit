@@ -277,6 +277,7 @@ const GridCell = memo(function GridCell({ rowIndex, colIndex, cellData, onDrop, 
           key={idx}
           ref={idx === 0 ? ref : undefined}
           className="absolute cursor-move"
+          title={item.name}
           style={{
             left: `${pos.col * totalCellSize}px`,
             top: `${pos.row * totalCellSize}px`,
@@ -323,13 +324,13 @@ const GridCell = memo(function GridCell({ rowIndex, colIndex, cellData, onDrop, 
             </div>
           )}
 
-          {/* 아이템 라벨 - 첫 번째 셀에만 */}
+          {/* 아이템 라벨 - 첫 번째 셀에만 (1칸/2칸 이상 동일 폰트 크기) */}
           {idx === 0 && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-1 z-10">
               <div
                 className="font-bold text-center leading-tight"
                 style={{
-                  fontSize: isMobile ? (item.volume === 1 ? '8px' : '9px') : (item.volume === 1 ? '9px' : '11px'),
+                  fontSize: isMobile ? '9px' : '11px',
                   color: 'white',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
@@ -630,7 +631,7 @@ function BagTabContent({ gridSize, timeRemaining, formatTime, timerLabel, charac
   const getInitialFreeItems = useCallback((): Item[] => {
     if (characterData?.misc_items && characterData.misc_items.length > 0) {
       return characterData.misc_items.map((item, index) => ({
-        id: `f-${index}`,
+        id: `f-${Date.now()}-${index}`,
         name: item.name,
         count: item.quantity,
         volume: 0,
@@ -644,11 +645,13 @@ function BagTabContent({ gridSize, timeRemaining, formatTime, timerLabel, charac
     if (characterData?.nearby_items && characterData.nearby_items.length > 0) {
       const items: NearbyItem[] = [];
       characterData.nearby_items.forEach((item, groupIndex) => {
+        // 각 아이템 인스턴스를 개별적으로 생성하되 count: 1을 명시적으로 설정
         for (let i = 0; i < item.quantity; i++) {
           items.push({
-            id: `n-${groupIndex}-${i}`,
+            id: `n-${Date.now()}-${groupIndex}-${i}`,
             name: item.name,
             volume: item.volume,
+            count: 1,  // 명시적으로 count 설정 (수량 합산 시 필요)
           });
         }
       });
@@ -813,12 +816,17 @@ function BagTabContent({ gridSize, timeRemaining, formatTime, timerLabel, charac
       }
     } else {
       // 주변 아이템을 가방 또는 misc space에 추가
+      // 그룹화된 아이템이라도 한 번에 1개씩만 이동
+      const isGrouped = 'ids' in draggedItem && draggedItem.ids && draggedItem.ids.length > 0;
+      // 항상 1개만 이동
+      const idToRemove = isGrouped ? draggedItem.ids![0] : draggedItem.id;
+      
       if (draggedItem.volume === 0) {
         // 부피 0 아이템은 misc space로
         const newItem: Item = {
           id: `f-${Date.now()}`,
           name: draggedItem.name,
-          count: 1,
+          count: 1,  // 항상 1개만 이동
           volume: 0,
           icon: draggedItem.icon,
         };
@@ -831,13 +839,14 @@ function BagTabContent({ gridSize, timeRemaining, formatTime, timerLabel, charac
           }
           return [...prev, newItem];
         });
-        setNearbyItems((prev) => prev.filter((i) => i.id !== draggedItem.id));
+        // 1개만 제거
+        setNearbyItems((prev) => prev.filter((i) => i.id !== idToRemove));
       } else {
         // 일반 아이템은 가방으로
         const newItem: Item = {
-          id: draggedItem.id,
+          id: `i-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
           name: draggedItem.name,
-          count: 1,
+          count: 1,  // 항상 1개만 이동
           volume: draggedItem.volume,
           gridPosition: { row, col },
           shapeIndex: 0,
@@ -847,7 +856,8 @@ function BagTabContent({ gridSize, timeRemaining, formatTime, timerLabel, charac
         
         if (canPlaceItem(newItem, row, col, 0)) {
           setItems((prev) => [...prev, newItem]);
-          setNearbyItems((prev) => prev.filter((i) => i.id !== draggedItem.id));
+          // 1개만 제거
+          setNearbyItems((prev) => prev.filter((i) => i.id !== idToRemove));
         }
       }
     }
@@ -883,14 +893,19 @@ function BagTabContent({ gridSize, timeRemaining, formatTime, timerLabel, charac
 
   const handleNearbyDrop = (draggedItem: Item) => {
     if ('gridPosition' in draggedItem) {
-      // 가방 아이템을 주변으로
-      const nearbyItem: NearbyItem = {
-        id: draggedItem.id,
-        name: draggedItem.name,
-        volume: draggedItem.volume,
-        icon: draggedItem.icon,
-      };
-      setNearbyItems((prev) => [...prev, nearbyItem]);
+      // 가방 아이템을 주변으로 - count만큼 개별 NearbyItem 생성
+      const itemCount = draggedItem.count || 1;
+      const newNearbyItems: NearbyItem[] = [];
+      for (let i = 0; i < itemCount; i++) {
+        newNearbyItems.push({
+          id: `n-${Date.now()}-${i}`,
+          name: draggedItem.name,
+          volume: draggedItem.volume,
+          icon: draggedItem.icon,
+          count: 1,  // 개별 아이템은 count: 1
+        });
+      }
+      setNearbyItems((prev) => [...prev, ...newNearbyItems]);
       setItems((prev) => prev.filter((i) => i.id !== draggedItem.id));
     } else if ('count' in draggedItem && draggedItem.volume === 0) {
       // 여유공간 아이템을 주변으로
@@ -910,6 +925,7 @@ function BagTabContent({ gridSize, timeRemaining, formatTime, timerLabel, charac
           name: draggedItem.name,
           volume: 0,
           icon: draggedItem.icon,
+          count: 1,  // 명시적으로 count 설정
         };
         setNearbyItems((prev) => [...prev, nearbyItem]);
         setFreeItems((prev) => prev.filter((i) => i.id !== draggedItem.id));
@@ -924,44 +940,29 @@ function BagTabContent({ gridSize, timeRemaining, formatTime, timerLabel, charac
       return;
     }
 
-    // 그룹화된 아이템인 경우 (count와 ids가 있음)
-    if (draggedItem.count && draggedItem.count > 1 && draggedItem.ids) {
-      // 수량이 2개 이상이면 다이얼로그 표시
-      setQuantityDialog({
-        isOpen: true,
-        item: draggedItem,
-        maxQuantity: draggedItem.count,
-        selectedQuantity: 1,
-        action: 'toMisc',
-      });
-    } else {
-      // 단일 아이템이면 바로 이동
-      const newItem: Item = {
-        id: `f-${Date.now()}`,
-        name: draggedItem.name,
-        count: 1,
-        volume: 0,
-        icon: draggedItem.icon,
-      };
-      setFreeItems((prev) => {
-        const existing = prev.find((i) => i.name === newItem.name && i.volume === 0);
-        if (existing) {
-          return prev.map((i) =>
-            i.id === existing.id ? { ...i, count: i.count + 1 } : i
-          );
-        }
-        return [...prev, newItem];
-      });
-      
-      // Nearby에서 해당 아이템 제거
-      if (draggedItem.ids) {
-        // 그룹화된 아이템에서 하나만 제거
-        const removeId = draggedItem.ids[0];
-        setNearbyItems((prev) => prev.filter((i) => i.id !== removeId));
-      } else {
-        setNearbyItems((prev) => prev.filter((i) => i.id !== draggedItem.id));
+    // 그룹화 여부와 관계없이 항상 1개씩만 이동
+    const isGrouped = 'ids' in draggedItem && draggedItem.ids && draggedItem.ids.length > 0;
+    const idToRemove = isGrouped ? draggedItem.ids![0] : draggedItem.id;
+    
+    const newItem: Item = {
+      id: `f-${Date.now()}`,
+      name: draggedItem.name,
+      count: 1,
+      volume: 0,
+      icon: draggedItem.icon,
+    };
+    setFreeItems((prev) => {
+      const existing = prev.find((i) => i.name === newItem.name && i.volume === 0);
+      if (existing) {
+        return prev.map((i) =>
+          i.id === existing.id ? { ...i, count: i.count + 1 } : i
+        );
       }
-    }
+      return [...prev, newItem];
+    });
+    
+    // 1개만 제거
+    setNearbyItems((prev) => prev.filter((i) => i.id !== idToRemove));
   };
 
   // 수량 선택 다이얼로그 확인
@@ -979,6 +980,7 @@ function BagTabContent({ gridSize, timeRemaining, formatTime, timerLabel, charac
           name: item.name,
           volume: 0,
           icon: item.icon,
+          count: 1,  // 명시적으로 count 설정
         });
       }
       setNearbyItems((prev) => [...prev, ...newNearbyItems]);
@@ -1252,7 +1254,7 @@ function BagTabContent({ gridSize, timeRemaining, formatTime, timerLabel, charac
             <div className="flex items-center gap-1.5 px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(255, 71, 87, 0.15)', border: '1px solid var(--danger)' }}>
               <AlertCircle className="w-3 h-3" style={{ color: 'var(--danger)' }} />
               <span className="text-[10px] font-bold" style={{ color: 'var(--danger)' }}>
-                {timerLabel ? `${timerLabel} · ` : ''}{formatTime(timeRemaining)} 후 삭제
+                {timerLabel ? `${timerLabel} · ` : ''}{formatTime(timeRemaining)} 후 자동 삭제
               </span>
             </div>
           </div>

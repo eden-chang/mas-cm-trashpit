@@ -25,24 +25,74 @@ load_dotenv()
 
 from shared.config import POLLING_INTERVAL, DEBUG_MODE
 from bot.mastodon_client import get_notifications, reply
-from bot.commands import use, transfer, discard, acquire, grant
+from bot.commands import (
+    use,
+    transfer,
+    discard,
+    acquire,
+    grant,
+    points_admin,
+    stat_change,
+    shop,
+    item_description,
+    buy,
+    peek_status,
+    attack,
+    defense,
+    shoot,
+    dodge,
+)
 from bot.scheduler import start_scheduler, stop_scheduler
 from bot.logger import get_logger
 
 logger = get_logger()
 
+try:
+    from postgrest.exceptions import APIError as PostgrestAPIError
+except ImportError:
+    PostgrestAPIError = None  # type: ignore[misc, assignment]
+
+# 핸들러 실행 시 구체적으로 처리할 예외 (네트워크/DB 등)
+_HANDLER_IO_EXCEPTIONS: tuple = (ConnectionError, OSError)
+if PostgrestAPIError is not None:
+    _HANDLER_IO_EXCEPTIONS = _HANDLER_IO_EXCEPTIONS + (PostgrestAPIError,)
+
 # 디버그 모드 설정
 if DEBUG_MODE:
     os.environ["DEBUG"] = "true"
 
-# 명령어 패턴
+# 허용 명령어 접두사 (화이트리스트)
+ALLOWED_PREFIXES = frozenset({
+    "획득", "버리기", "사용", "양도", "지급",
+    "포인트 추가", "포인트추가", "포인트 차감", "포인트차감",
+    "hp", "체력", "근력", "행운",
+    "상점", "설명", "구매", "상태 확인", "상태확인",
+    "발사", "공격", "방어", "회피",
+})
+
+# 명령어 패턴 (give_point는 give_item보다 먼저 — 더 구체적인 패턴 우선)
 PATTERNS = {
     "use": re.compile(r"\[사용/([^\]]+)\]"),
-    "give_item": re.compile(r"\[양도/([^\]/]+)/([^\]]+)\]"),
     "give_point": re.compile(r"\[양도/(\d+)포인트/([^\]]+)\]"),
+    "give_item": re.compile(r"\[양도/([^\]/]+)/([^\]]+)\]"),
     "discard": re.compile(r"\[버리기/([^\]]+)\]"),
     "acquire": re.compile(r"\[획득/([^\]]+)\]"),
     "grant_item": re.compile(r"\[지급/([^\]/]+)/([^\]]+)\]"),
+    "point_add": re.compile(r"\[포인트 추가/([^/]+)/([^\]]+)\]"),
+    "point_add_nospace": re.compile(r"\[포인트추가/([^/]+)/([^\]]+)\]"),
+    "point_deduct": re.compile(r"\[포인트 차감/([^/]+)/([^\]]+)\]"),
+    "point_deduct_nospace": re.compile(r"\[포인트차감/([^/]+)/([^\]]+)\]"),
+    "stat_change": re.compile(r"\[(hp|체력|근력|행운)/([+-]?\d+)\]"),
+    "shop": re.compile(r"\[상점\]"),
+    "item_description": re.compile(r"\[설명/([^\]]+)\]"),
+    # [구매/아이템명] 또는 [구매/아이템명/개수]. 아이템명에 슬래시(/) 미지원.
+    "buy": re.compile(r"\[구매/([^/]+)(?:/(\d+))?\]"),
+    "peek_status": re.compile(r"\[상태 확인\]"),
+    "peek_status_nospace": re.compile(r"\[상태확인\]"),
+    "attack": re.compile(r"\[공격\]"),
+    "defense": re.compile(r"\[방어\]"),
+    "shoot": re.compile(r"\[발사\]"),
+    "dodge": re.compile(r"\[회피\]"),
 }
 
 # 명령어 핸들러 매핑
@@ -53,18 +103,47 @@ HANDLERS = {
     "discard": discard.handle,
     "acquire": acquire.handle,
     "grant_item": grant.handle,
+    "point_add": points_admin.handle_add,
+    "point_add_nospace": points_admin.handle_add,
+    "point_deduct": points_admin.handle_deduct,
+    "point_deduct_nospace": points_admin.handle_deduct,
+    "stat_change": stat_change.handle,
+    "shop": shop.handle,
+    "item_description": item_description.handle,
+    "buy": buy.handle,
+    "peek_status": peek_status.handle,
+    "peek_status_nospace": peek_status.handle,
+    "attack": attack.handle,
+    "defense": defense.handle,
+    "shoot": shoot.handle,
+    "dodge": dodge.handle,
 }
 
 
+def _extract_prefix(matched_text: str) -> str:
+    """매칭된 [명령어/인자] 또는 [명령어]에서 접두사 추출."""
+    inner = matched_text[1:-1]
+    return inner.split("/")[0].strip()
+
+
+def _resolve_reply_visibility(user_visibility: str) -> str:
+    """봇 답변은 unlisted/private/direct만 허용. public은 unlisted로 다운그레이드."""
+    if user_visibility in ("unlisted", "private", "direct"):
+        return user_visibility
+    return "unlisted"
+
+
 def parse_command(content: str) -> tuple[str, list] | None:
-    """명령어 파싱"""
-    # HTML 태그 제거
+    """명령어 파싱 (허용 접두사 화이트리스트 검증 포함)"""
     content = re.sub(r"<[^>]+>", "", content)
 
     for cmd_type, pattern in PATTERNS.items():
         match = pattern.search(content)
         if match:
-            return (cmd_type, list(match.groups()))
+            prefix = _extract_prefix(match.group(0))
+            if prefix in ALLOWED_PREFIXES:
+                return (cmd_type, list(match.groups()))
+            return None
 
     return None
 
@@ -78,6 +157,7 @@ def on_notification(notification: dict):
     content = status["content"]
     user = notification["account"]["acct"]
     status_id = status["id"]
+    visibility = _resolve_reply_visibility(status.get("visibility", "unlisted"))
 
     # 명령어 파싱
     result = parse_command(content)
@@ -93,10 +173,13 @@ def on_notification(notification: dict):
         try:
             result = handler(status_id, user, args)
             if result is not None:
-                reply(status_id, result)
+                reply(status_id, result, visibility=visibility)
+        except _HANDLER_IO_EXCEPTIONS as e:
+            logger.command_error(user, cmd_type, str(e), exc_info=False)
+            reply(status_id, f"@{user} 시스템 오류가 발생했습니다. 잠시 후 다시 시도해주세요.", visibility=visibility)
         except Exception as e:
-            logger.command_error(user, cmd_type, str(e))
-            reply(status_id, f"@{user} 오류가 발생했습니다: {e}")
+            logger.command_error(user, cmd_type, str(e), exc_info=True)
+            reply(status_id, f"@{user} 시스템 오류가 발생했습니다. 잠시 후 다시 시도해주세요.", visibility=visibility)
 
 
 def signal_handler(signum, frame):

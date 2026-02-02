@@ -30,11 +30,15 @@ class ItemInfo:
 
 @dataclass
 class LayoutItem:
-    """아이템 배치 정보"""
+    """아이템 배치 정보
+    
+    id: 인스턴스 고유 식별자 (같은 이름의 아이템이 여러 위치에 있을 때 구분용)
+    """
     name: str
     row: int
     col: int
     shapeIndex: int = 0
+    id: Optional[str] = None  # 인스턴스 ID (예: "i-1706789123456-0")
 
 
 @dataclass

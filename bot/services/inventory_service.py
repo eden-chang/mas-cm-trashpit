@@ -7,12 +7,17 @@ from typing import Optional
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from shared.supabase_client import get_supabase, TABLE_CHARACTERS
-from shared.constants import get_bag_capacity
+from shared.constants import get_bag_capacity, STAT_KEY_TO_DB_COLUMN
 from bot.services.character_service import get_character
 from bot.services.item_service import get_item_info
 from bot.logger import get_logger
 
 logger = get_logger()
+
+try:
+    from postgrest.exceptions import APIError as PostgrestAPIError
+except ImportError:
+    PostgrestAPIError = None  # type: ignore[misc, assignment]
 
 # 인벤토리 위치 → Supabase 컬럼 매핑
 _LOC_TO_COLUMN = {
@@ -186,29 +191,28 @@ def get_available_space(char_name: str) -> int:
 
 
 def update_stat(char_name: str, stat_name: str, delta: int) -> bool:
-    """캐릭터 스탯 업데이트 (hp, luck 등)"""
+    """캐릭터 스탯 업데이트 (hp, luck 등).
+
+    stat_name은 character dict 키(health, strength, luck, hp, points)와 동일해야 하며,
+    stat_change 명령과 inventory_service 간 계약이다.
+    """
     char = get_character(char_name)
     if not char:
         return False
 
-    # 스탯명 → Supabase 컬럼 매핑
-    stat_column_map = {
-        'hp': 'hp',
-        'health': 'con',
-        'con': 'con',
-        'strength': 'str',
-        'str': 'str',
-        'luck': 'luck',
-        'points': 'points',
-    }
-
-    column = stat_column_map.get(stat_name.lower())
+    column = STAT_KEY_TO_DB_COLUMN.get(stat_name.lower())
     if not column:
-        logger.error("Unknown stat: %s", stat_name)
+        logger.error(f"Unknown stat: {stat_name}")
         return False
 
-    current = char.get(stat_name, 0) or 0
+    raw_current = char.get(stat_name, 0) or 0
+    try:
+        current = int(raw_current)
+    except (TypeError, ValueError):
+        current = 0
     new_value = current + delta
+    if stat_name.lower() == "points":
+        new_value = max(0, new_value)
 
     try:
         supabase = get_supabase()
@@ -219,6 +223,21 @@ def update_stat(char_name: str, stat_name: str, delta: int) -> bool:
             .execute()
         )
         return bool(response.data)
-    except Exception as e:
-        logger.error("update_stat Error: %s", e)
+    except (OSError, ConnectionError) as e:
+        logger.error(
+            "update_stat failed (network) char_name=%s stat_name=%s delta=%s: %s: %s",
+            char_name, stat_name, delta, type(e).__name__, e,
+        )
         return False
+    except Exception as e:
+        if PostgrestAPIError is not None and isinstance(e, PostgrestAPIError):
+            logger.error(
+                "update_stat failed (API) char_name=%s stat_name=%s delta=%s: %s: %s",
+                char_name, stat_name, delta, type(e).__name__, e,
+            )
+            return False
+        logger.exception(
+            "update_stat unexpected error char_name=%s stat_name=%s delta=%s",
+            char_name, stat_name, delta,
+        )
+        raise

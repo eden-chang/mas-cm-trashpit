@@ -33,3 +33,4 @@ def get_supabase() -> Client:
 # 테이블 이름 상수
 TABLE_CHARACTERS = "characters"
 TABLE_ITEMS = "items"
+TABLE_DODGE = "dodge"
