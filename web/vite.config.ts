@@ -8,6 +8,19 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  build: {
+    sourcemap: false,
+    reportCompressedSize: false,
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) return 'react'
+          if (id.includes('node_modules/@radix-ui') || id.includes('node_modules/@emotion')) return 'ui'
+          if (id.includes('node_modules/recharts') || id.includes('node_modules/d3-')) return 'charts'
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
