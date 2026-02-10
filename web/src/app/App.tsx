@@ -82,6 +82,7 @@ export default function App() {
   const [currentNearbyItems, setCurrentNearbyItems] = useState<NearbyItem[]>([]);
   const [currentFreeItems, setCurrentFreeItems] = useState<FreeItem[]>([]);
   const isSyncingRef = useRef(false);
+  const pendingSyncResetRef = useRef(false);
 
   // Sync state
   const [lastKnownUpdate, setLastKnownUpdate] = useState<string | null>(null);
@@ -100,6 +101,19 @@ export default function App() {
     }, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // selectedCharacterData가 변경되면 (로드/새로고침 완료) 동기화 플래그 해제
+  // React 렌더 사이클과 동기화되므로 setTimeout보다 안정적
+  useEffect(() => {
+    if (pendingSyncResetRef.current) {
+      // BagTab이 새 데이터로 onInventoryChange를 호출한 뒤 다음 렌더에서 해제
+      const id = requestAnimationFrame(() => {
+        isSyncingRef.current = false;
+        pendingSyncResetRef.current = false;
+      });
+      return () => cancelAnimationFrame(id);
+    }
+  }, [selectedCharacterData]);
 
   // Load character list on mount
   useEffect(() => {
@@ -168,9 +182,11 @@ export default function App() {
     setIsSidebarOpen(false);
     setIsLoadingCharacterData(true);
     setHasUnsavedChanges(false);
+    setSaveError(null);
     // 시트에서 불러온 직후·저장 후 재로드 시 BagTab의 onInventoryChange가 호출되더라도
     // hasUnsavedChanges가 true로 잡히지 않도록 동기화 구간으로 표시
     isSyncingRef.current = true;
+    pendingSyncResetRef.current = true;
 
     try {
       const charName = chars[index].name;
@@ -193,12 +209,10 @@ export default function App() {
       setCharacters(updatedChars);
     } catch (error) {
       console.error('Failed to load character data:', error);
+      isSyncingRef.current = false;
+      pendingSyncResetRef.current = false;
     } finally {
       setIsLoadingCharacterData(false);
-      // BagTab useEffect가 초기 state로 onInventoryChange 호출한 뒤에 해제
-      setTimeout(() => {
-        isSyncingRef.current = false;
-      }, 100);
     }
   };
 
@@ -214,6 +228,7 @@ export default function App() {
     setIsSaving(true);
     setSaveError(null);
     isSyncingRef.current = true;
+    pendingSyncResetRef.current = true;
 
     try {
       const payload = {
@@ -245,12 +260,10 @@ export default function App() {
       const message = error instanceof ApiError ? error.message : 'Failed to save';
       setSaveError(message);
       console.error('Failed to save:', error);
+      isSyncingRef.current = false;
+      pendingSyncResetRef.current = false;
     } finally {
       setIsSaving(false);
-      // 다음 틱까지 대기 후 해제 (BagTab useEffect에서 로드된 데이터로 handleInventoryChange 호출 방지)
-      setTimeout(() => {
-        isSyncingRef.current = false;
-      }, 0);
     }
   };
 

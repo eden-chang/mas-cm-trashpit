@@ -22,16 +22,13 @@ class NotificationTemplates:
     def item_received(sender_name: str, item_name: str, quantity: int, location: str) -> str:
         """아이템 양도 수신 알림"""
         qty_str = f" x{quantity}" if quantity > 1 else ""
-        return (
-            f"📦 {sender_name}님이 {josa(item_name + qty_str, '을/를')} 양도했습니다!\n"
-            f"{location}에서 확인하세요."
-        )
+        return f"{josa(sender_name, '이/가')} 당신에게 {josa(item_name + qty_str, '을/를')} 양도했습니다."
 
     @staticmethod
     def bag_full(item_name: str, volume: int, available: int) -> str:
         """가방 공간 부족 알림"""
         return (
-            f"⚠️ 가방 공간이 부족합니다!\n"
+            f"가방 공간이 부족합니다.\n"
             f"아이템: {item_name} (부피: {volume}칸)\n"
             f"남은 공간: {available}칸\n\n"
             f"주변에 임시 보관됩니다."
@@ -52,9 +49,9 @@ class NotificationTemplates:
             item_list += f" 외 {len(items) - 3}개"
 
         return (
-            f"⏰ 1시간 후 주변 아이템이 삭제됩니다!\n"
+            f"1시간 후 주변 아이템이 삭제됩니다.\n"
             f"아이템: {item_list}\n"
-            f"지금 가방에 넣으세요!"
+            f"지금 가방에 넣으세요."
         )
 
     @staticmethod
@@ -72,15 +69,15 @@ class NotificationTemplates:
         )
 
         return (
-            f"⚠️ 주변 아이템이 자동 삭제되었습니다:\n"
+            f"주변 아이템이 자동 삭제되었습니다:\n"
             f"{item_list}\n\n"
-            f"다음부터는 빨리 가방에 넣으세요!"
+            f"다음부터는 빨리 가방에 넣으세요."
         )
 
     @staticmethod
     def item_used(item_name: str, effect: str, remaining: int) -> str:
         """아이템 사용 알림"""
-        msg = f"✨ {josa(item_name, '을/를')} 사용했습니다!\n{effect}"
+        msg = f"{josa(item_name, '을/를')} 사용했습니다.\n{effect}"
         if remaining > 0:
             msg += f"\n남은 수량: {remaining}개"
         else:

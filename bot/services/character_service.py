@@ -13,6 +13,10 @@ from bot.logger import get_logger
 logger = get_logger()
 
 
+class CharacterServiceError(Exception):
+    """네트워크/DB 장애 등 시스템 오류. '캐릭터 미존재'(None 반환)와 구분된다."""
+
+
 def _row_to_dict(row: dict) -> Dict[str, Any]:
     """Supabase 행을 기존 인터페이스 형태로 변환"""
     return {
@@ -33,7 +37,13 @@ def _row_to_dict(row: dict) -> Dict[str, Any]:
 
 
 def get_character(name: str) -> Optional[Dict[str, Any]]:
-    """이름으로 캐릭터 조회"""
+    """이름으로 캐릭터 조회.
+
+    Returns:
+        캐릭터 dict 또는 미존재 시 None.
+    Raises:
+        CharacterServiceError: 네트워크/DB 장애.
+    """
     if not name:
         return None
 
@@ -51,7 +61,7 @@ def get_character(name: str) -> Optional[Dict[str, Any]]:
         return None
     except Exception as e:
         logger.error("Character Lookup Error: %s", e)
-        return None
+        raise CharacterServiceError(f"캐릭터 조회 중 시스템 오류: {e}") from e
 
 
 def get_character_by_name(name: str) -> Optional[Dict[str, Any]]:
@@ -60,7 +70,13 @@ def get_character_by_name(name: str) -> Optional[Dict[str, Any]]:
 
 
 def get_character_by_mastodon_id(mastodon_id: str) -> Optional[Dict[str, Any]]:
-    """마스토돈 ID로 캐릭터 조회"""
+    """마스토돈 ID로 캐릭터 조회.
+
+    Returns:
+        캐릭터 dict 또는 미존재 시 None.
+    Raises:
+        CharacterServiceError: 네트워크/DB 장애.
+    """
     if not mastodon_id:
         return None
 
@@ -78,4 +94,4 @@ def get_character_by_mastodon_id(mastodon_id: str) -> Optional[Dict[str, Any]]:
         return None
     except Exception as e:
         logger.error("Character Lookup Error (ID): %s", e)
-        return None
+        raise CharacterServiceError(f"캐릭터 조회 중 시스템 오류: {e}") from e

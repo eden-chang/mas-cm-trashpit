@@ -8,20 +8,42 @@ const BASE = typeof import.meta.env !== 'undefined' && import.meta.env.VITE_API_
   ? String(import.meta.env.VITE_API_BASE_URL).replace(/\/$/, '')
   : '';
 
+const REQUEST_TIMEOUT_MS = 15_000;
+
 function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${BASE}${endpoint}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
   return fetch(url, {
     headers: {
       'Content-Type': 'application/json',
       ...options.headers,
     },
     ...options,
+    signal: controller.signal,
   }).then(async (res) => {
-    const data = await res.json().catch(() => ({}));
+    let data: unknown;
+    try {
+      data = await res.json();
+    } catch {
+      if (res.ok) {
+        throw new ApiError('서버 응답 파싱 실패', res.status);
+      }
+      data = {};
+    }
     if (!res.ok) {
       throw new ApiError((data as { error?: string }).error || '요청 실패', res.status);
     }
     return data as T;
+  }).catch((err) => {
+    if (err instanceof ApiError) throw err;
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new ApiError('요청 시간 초과', 0);
+    }
+    throw new ApiError(err instanceof Error ? err.message : '네트워크 오류', 0);
+  }).finally(() => {
+    clearTimeout(timeoutId);
   });
 }
 

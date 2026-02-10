@@ -5,7 +5,7 @@ from typing import Any
 
 from bot.config import SYSTEM_ADMIN_IDS
 from bot.logger import get_logger
-from bot.services.character_service import get_character
+from bot.services.character_service import get_character, CharacterServiceError
 from bot.services.inventory_service import update_stat
 
 logger = get_logger()
@@ -70,7 +70,11 @@ def _run_operation(user: str, args: list[str], operation: str) -> str:
     results: list[dict[str, Any]] = []
 
     for char_name in targets:
-        character = get_character(char_name)
+        try:
+            character = get_character(char_name)
+        except CharacterServiceError:
+            results.append({"character": char_name, "success": False, "error": "시스템 오류"})
+            continue
         if not character:
             results.append({"character": char_name, "success": False, "error": "캐릭터를 찾을 수 없습니다"})
             continue

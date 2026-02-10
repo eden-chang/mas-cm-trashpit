@@ -48,7 +48,16 @@ def get_inventory_dict(char_name: str, location: str) -> dict[str, int]:
     if not isinstance(inv_data, dict):
         return {}
 
-    return {str(k): int(v) for k, v in inv_data.items() if v and int(v) > 0}
+    result: dict[str, int] = {}
+    for k, v in inv_data.items():
+        try:
+            qty = int(v)
+        except (TypeError, ValueError):
+            logger.warning("get_inventory_dict: 비숫자 값 무시 char=%s loc=%s key=%s val=%r", char_name, location, k, v)
+            continue
+        if qty > 0:
+            result[str(k)] = qty
+    return result
 
 
 def update_inventory_location(char_name: str, location: str, items: dict[str, int]) -> bool:
@@ -137,21 +146,48 @@ def get_item_counts_by_location(char_name: str, item_name: str) -> dict[str, int
 
 def remove_item_by_priority(char_name: str, item_name: str, quantity: int) -> int:
     """우선순위(주변 -> 여유공간 -> 가방)대로 아이템을 차감하고, 실제 차감된 수량을 반환."""
+    total, _ = remove_item_by_priority_detailed(char_name, item_name, quantity)
+    return total
+
+
+def remove_item_by_priority_detailed(
+    char_name: str, item_name: str, quantity: int
+) -> tuple[int, list[tuple[str, int]]]:
+    """우선순위대로 아이템을 차감하고, (총 차감 수량, [(위치, 수량), ...])를 반환.
+
+    실패 시 이미 제거된 아이템을 add_item으로 롤백한다.
+    """
     if quantity <= 0:
-        return 0
+        return 0, []
     by_loc = get_item_counts_by_location(char_name, item_name)
     remaining = quantity
-    removed_total = 0
+    removed: list[tuple[str, int]] = []
+
     for loc in TRANSFER_PRIORITY:
         if remaining <= 0:
             break
         take = min(remaining, by_loc[loc])
-        if take > 0 and remove_item(char_name, item_name, take, loc):
-            removed_total += take
+        if take <= 0:
+            continue
+        if remove_item(char_name, item_name, take, loc):
+            removed.append((loc, take))
             remaining -= take
-        elif take > 0:
-            break
-    return removed_total
+        else:
+            # 실패 → 이전에 제거된 아이템을 원래 위치로 복원
+            logger.warning(
+                "remove_item_by_priority: %s에서 제거 실패, 롤백 시작 char=%s item=%s",
+                loc, char_name, item_name,
+            )
+            for rb_loc, rb_qty in removed:
+                if not add_item(char_name, item_name, rb_qty, rb_loc):
+                    logger.error(
+                        "remove_item_by_priority: 롤백 실패 char=%s item=%s loc=%s qty=%d",
+                        char_name, item_name, rb_loc, rb_qty,
+                    )
+            return 0, []
+
+    removed_total = sum(q for _, q in removed)
+    return removed_total, removed
 
 
 def add_to_nearby(char_name: str, item_name: str, quantity: int) -> bool:

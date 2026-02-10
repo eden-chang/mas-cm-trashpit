@@ -63,7 +63,7 @@ def parse_sellable_price(price: Any) -> Optional[int]:
 
 
 def format_price_display(price: Any) -> str:
-    """가격을 설명/상점 표시용 문자열로 반환. '비매품' 또는 'N 포인트'."""
+    """가격을 설명/상점 표시용 문자열로 반환. '비매품' 또는 'N포인트'."""
     if price is None:
         return "비매품"
     if isinstance(price, str):
@@ -72,12 +72,12 @@ def format_price_display(price: Any) -> str:
             return "비매품"
         try:
             p = int(float(s))
-            return f"{p} 포인트" if p > 0 else "비매품"
+            return f"{p:,}포인트" if p > 0 else "비매품"
         except (ValueError, TypeError):
             return "비매품"
     try:
         p = int(price)
-        return f"{p} 포인트" if p > 0 else "비매품"
+        return f"{p:,}포인트" if p > 0 else "비매품"
     except (ValueError, TypeError):
         return "비매품"
 

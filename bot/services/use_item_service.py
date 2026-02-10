@@ -11,6 +11,7 @@ from shared.constants import ManagementColumns, LOCATION_TO_DB_COLUMN, STAT_KEY_
 from bot.services.character_service import get_character
 from bot.services.item_service import get_item_info
 from bot.services.inventory_service import (
+    add_item,
     remove_item,
     find_item_location,
     get_item_count,
@@ -132,7 +133,7 @@ def use_item(char_name: str, item_name: str) -> UseItemResult:
                 if stat_key == "hp" and applied_delta > 0:
                     health_raw = char_data.get("health", 0) or 0
                     try:
-                        max_hp = int(health_raw) * 10
+                        max_hp = max(0, int(health_raw) * 10)
                     except (TypeError, ValueError):
                         max_hp = 0
                     if current_stat_value + applied_delta > max_hp:
@@ -173,11 +174,18 @@ def use_item(char_name: str, item_name: str) -> UseItemResult:
                     error_code="REMOVE_ITEM_FAILED",
                     item_name=item_name
                 )
-            
+
             # 스탯 업데이트 (있는 경우) — stat_key는 문자열 키 (hp, health 등)
             if stat_key and applied_delta is not None and applied_delta != 0:
                 if not update_stat(char_name, stat_key, applied_delta):
-                    logger.warning(f"update_stat 실패: {char_name}, {stat_key}, {applied_delta}")
+                    logger.warning(f"update_stat 실패, 아이템 복원 시도: {char_name}, {stat_key}, {applied_delta}")
+                    if not add_item(char_name, item_name, 1, location):
+                        logger.error(f"update_stat 실패 후 아이템 복원도 실패: {char_name}, {item_name}, {location}")
+                    return UseItemResult(
+                        success=False,
+                        error_code="TRANSACTION_FAILED",
+                        item_name=item_name
+                    )
         
         # 6. 남은 수량 확인
         remaining = get_item_count(char_name, item_name)

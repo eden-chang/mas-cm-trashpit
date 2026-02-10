@@ -126,7 +126,7 @@ def serialize_json_inventory(items: Union[list[dict], list[Item]]) -> Optional[d
             qty = item.quantity
 
         if name and qty > 0:
-            result[name] = qty
+            result[name] = result.get(name, 0) + qty
 
     return result if result else None
 

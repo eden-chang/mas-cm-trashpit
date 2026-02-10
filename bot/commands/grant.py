@@ -4,7 +4,7 @@ from collections import Counter
 
 from bot.logger import get_logger
 from bot.config import SYSTEM_ADMIN_IDS
-from bot.services.character_service import get_character_by_name
+from bot.services.character_service import get_character_by_name, CharacterServiceError
 from bot.services.item_service import get_item_info
 from bot.services.inventory_service import add_item
 
@@ -32,7 +32,9 @@ def handle(status_id: str, user: str, args: list[str]) -> str | None:
     if not recipients_str or not items_str:
         return f"@{user} 캐릭터와 아이템을 입력해주세요. [지급/캐릭터1,캐릭터2/아이템1,아이템2]"
 
-    recipient_names = [s.strip() for s in recipients_str.split(",") if s.strip()]
+    recipient_names = list(dict.fromkeys(
+        s.strip() for s in recipients_str.split(",") if s.strip()
+    ))
     item_names = [s.strip() for s in items_str.split(",") if s.strip()]
     if not item_names or not recipient_names:
         return f"@{user} 캐릭터와 아이템을 각각 1개 이상 입력해주세요."
@@ -50,7 +52,11 @@ def handle(status_id: str, user: str, args: list[str]) -> str | None:
     not_found: list[str] = []
 
     for target_name in recipient_names:
-        character = get_character_by_name(target_name)
+        try:
+            character = get_character_by_name(target_name)
+        except CharacterServiceError:
+            not_found.append(target_name)
+            continue
         if not character:
             not_found.append(target_name)
             continue

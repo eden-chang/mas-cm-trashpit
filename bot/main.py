@@ -24,7 +24,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from shared.config import POLLING_INTERVAL, DEBUG_MODE
-from bot.mastodon_client import get_notifications, reply
+from mastodon import CallbackStreamListener
+from bot.mastodon_client import get_notifications, reply, get_client, reinit_client
 from bot.commands import (
     use,
     transfer,
@@ -176,15 +177,13 @@ def on_notification(notification: dict):
                 # 핸들러가 붙인 @user 접두사 제거 (status_reply가 자동 추가)
                 if result.startswith(f"@{user}"):
                     result = result[len(f"@{user}"):].lstrip()
-                # 봇 접두사 추가
-                result = f"*\n{result}"
                 reply(status_id, result, visibility=visibility)
         except _HANDLER_IO_EXCEPTIONS as e:
             logger.command_error(user, cmd_type, str(e), exc_info=False)
-            reply(status_id, f"*\n시스템 오류가 발생했습니다. 잠시 후 다시 시도해주세요.", visibility=visibility)
+            reply(status_id, "시스템 오류가 발생했습니다. 잠시 후 다시 시도해주세요.", visibility=visibility)
         except Exception as e:
             logger.command_error(user, cmd_type, str(e), exc_info=True)
-            reply(status_id, f"*\n시스템 오류가 발생했습니다. 잠시 후 다시 시도해주세요.", visibility=visibility)
+            reply(status_id, "시스템 오류가 발생했습니다. 잠시 후 다시 시도해주세요.", visibility=visibility)
 
 
 def signal_handler(signum, frame):
@@ -215,8 +214,56 @@ def run_test_mode():
         logger.info("-" * 50)
 
 
+def _skip_existing_notifications() -> None:
+    """시작 시 기존 알림을 조회만 하여 건너뛴다."""
+    try:
+        existing = get_notifications(since_id=None)
+        if existing:
+            logger.info(f"기존 알림 {len(existing)}개 건너뜀")
+        else:
+            logger.info("기존 알림 없음")
+    except Exception as e:
+        logger.warning(f"초기 알림 조회 실패: {e}")
+
+
+def run_streaming_loop():
+    """스트리밍으로 실시간 알림 처리 (연결 끊김 시 자동 재연결)"""
+    _skip_existing_notifications()
+
+    listener = CallbackStreamListener(notification_handler=on_notification)
+    consecutive_failures = 0
+    max_consecutive_failures = 5
+
+    while True:
+        try:
+            client = get_client()
+            logger.system_event("스트리밍 연결 시작", "info")
+            client.stream_user(listener)
+            # stream_user가 정상 종료되면 재연결
+            consecutive_failures = 0
+        except KeyboardInterrupt:
+            logger.system_event("사용자가 봇을 종료했습니다", "stop")
+            break
+        except Exception as e:
+            consecutive_failures += 1
+            logger.warning(
+                f"스트리밍 연결 끊김 (연속 실패 {consecutive_failures}회): {e}"
+            )
+
+            if consecutive_failures >= max_consecutive_failures:
+                logger.error(
+                    f"스트리밍 연속 {max_consecutive_failures}회 실패, 폴링으로 전환합니다."
+                )
+                raise
+
+            delay = min(5 * consecutive_failures, 30)
+            logger.info(f"스트리밍 재연결 대기 중... ({delay}초)")
+            time.sleep(delay)
+            reinit_client()
+
+
 def run_polling_loop():
-    """폴링 루프 실행"""
+    """폴링 루프 실행 (스트리밍 실패 시 fallback)"""
     consecutive_failures = 0
     max_consecutive_failures = 5
 
@@ -289,14 +336,18 @@ def main():
                 os.environ["DEBUG"] = "true"
                 logger.system_event("디버그 모드로 실행합니다", "info")
 
-            logger.system_event("봇을 시작합니다", "start")
-            logger.info(f"폴링 간격: {POLLING_INTERVAL}초")
+            logger.system_event("봇을 시작합니다 (스트리밍 모드)", "start")
             logger.info("Ctrl+C를 눌러 종료할 수 있습니다.")
 
             # 스케줄러 시작 (주변 아이템 자동 삭제)
             start_scheduler()
 
-            run_polling_loop()
+            try:
+                run_streaming_loop()
+            except Exception:
+                logger.warning("스트리밍 실패, 폴링 모드로 전환합니다.")
+                logger.info(f"폴링 간격: {POLLING_INTERVAL}초")
+                run_polling_loop()
 
     except Exception as e:
         logger.error(f"예상치 못한 오류가 발생했습니다: {e}")

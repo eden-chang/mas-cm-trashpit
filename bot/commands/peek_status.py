@@ -6,6 +6,9 @@ from shared.constants import get_bag_capacity
 from bot.services.item_service import get_item_info
 from bot.services.combat_utils import parse_stat
 from bot.utils.decorators import require_character
+from bot.logger import get_logger
+
+logger = get_logger()
 
 
 @require_character
@@ -31,6 +34,8 @@ def handle(status_id: str, user: str, character: Dict[str, Any], args: list[str]
         if q <= 0:
             continue
         info = get_item_info(item_name)
+        if not info:
+            logger.warning("상태 확인: 미등록 아이템 '%s' (캐릭터: %s)", item_name, character.get("name", "?"))
         vol = (info.get("volume", 0) or 0) if info else 0
         used += vol * q
 
@@ -41,7 +46,7 @@ def handle(status_id: str, user: str, character: Dict[str, Any], args: list[str]
         f"체력 {health}",
         f"행운 {luck}",
         "",
-        f"{points} 포인트 소지",
+        f"{points:,} 포인트 소지",
         "",
         f"HP {hp}/{max_hp}",
         f"가방 {used}/{capacity}",

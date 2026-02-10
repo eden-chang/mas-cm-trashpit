@@ -8,10 +8,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from shared.constants import STAT_INPUT_TO_KEY, STAT_KEY_TO_DISPLAY_NAME
 from bot.utils.korean import josa
 from bot.logger import get_logger
-from bot.services.character_service import get_character_by_mastodon_id
+from bot.services.character_service import get_character_by_mastodon_id, CharacterServiceError
 from bot.services.inventory_service import update_stat
 
 logger = get_logger()
+
+STAT_DELTA_MAX = 9999
 
 
 def handle(status_id: str, user: str, args: list[str]) -> str | None:
@@ -29,12 +31,22 @@ def handle(status_id: str, user: str, args: list[str]) -> str | None:
         logger.warning(f"stat_change: 숫자 아님 user={user} args={args}")
         return f"@{user} 숫자를 입력해 주세요. (예: [체력/-5])"
 
+    if delta == 0:
+        return f"@{user} 변경값은 0이 아닌 숫자를 입력해 주세요."
+
+    if abs(delta) > STAT_DELTA_MAX:
+        return f"@{user} 변경값은 -{STAT_DELTA_MAX} ~ +{STAT_DELTA_MAX} 범위여야 합니다."
+
     stat_key = STAT_INPUT_TO_KEY.get(stat_input)
     if not stat_key:
         logger.warning(f"stat_change: 지원하지 않는 스탯 user={user} stat_input={stat_input}")
         return f"@{user} 지원 스탯: hp, 체력, 근력, 행운"
 
-    character = get_character_by_mastodon_id(user)
+    try:
+        character = get_character_by_mastodon_id(user)
+    except CharacterServiceError:
+        logger.error(f"stat_change: 시스템 오류 user={user}")
+        return f"@{user} 시스템 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."
     if not character:
         logger.info(f"stat_change: 캐릭터 없음 user={user}")
         return f"@{user} 등록된 캐릭터를 찾을 수 없습니다."

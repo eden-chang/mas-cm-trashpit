@@ -18,7 +18,7 @@ def handle(status_id: str, user: str, args: list[str]) -> Optional[str]:
     info = get_item_info(item_name)
     if not info:
         logger.debug(f"설명 조회 실패: 아이템 없음 user={user} item_name={item_name!r}")
-        return f"@{user} '{item_name}' 아이템을 찾을 수 없습니다."
+        return f"@{user} '{item_name}' 아이템을 찾을 수 없습니다. 상점 목록을 확인해 주세요."
 
     name = info.get("name", item_name)
     price_str = format_price_display(info.get("price"))
@@ -26,11 +26,11 @@ def handle(status_id: str, user: str, args: list[str]) -> Optional[str]:
     stat = (info.get("stat") or "").strip()
     value_raw = info.get("value")
 
-    base = f"{name}({price_str}): {desc}" if price_str == "비매품" else f"{name} ({price_str}) : {desc}"
+    base = f"{name}({price_str}): {desc}"
 
     # 사용 불가 아이템
     if stat == "사용 불가":
-        return f"@{user} {base} [명령어 사용 불가]"
+        return f"@{user} {base} [사용 명령어로 소모 불가]"
 
     if stat and value_raw is not None and str(value_raw).strip():
         value_str = str(value_raw).strip()

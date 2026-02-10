@@ -45,7 +45,11 @@ def handle(status_id: str, user: str, args: list[str]) -> Optional[str]:
         name = item.get("name", "알 수 없음")
         price = item.get("price", 0)
         desc = (item.get("desc") or "").strip() or "설명 없음"
-        lines.append(f"- {name} ({price}포인트) : {desc}")
+        try:
+            price_str = f"{int(price):,}포인트"
+        except (TypeError, ValueError):
+            price_str = f"{price}포인트"
+        lines.append(f"- {name} ({price_str}) : {desc}")
     if len(items) > MAX_SHOP_DISPLAY:
         lines.append(f"... 외 {len(items) - MAX_SHOP_DISPLAY}개")
 

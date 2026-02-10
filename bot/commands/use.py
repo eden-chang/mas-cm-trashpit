@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from shared.constants import ErrorMessages
 from bot.services.use_item_service import use_item
 from bot.utils.decorators import require_character
+from bot.utils.locking import get_character_lock
 from bot.utils.validation import validate_item_name
 from bot.utils.korean import josa
 from bot.logger import get_logger
@@ -39,9 +40,10 @@ def handle(status_id: str, user: str, character: Dict, args: List[str]) -> str:
         return f"@{user} {error_msg}"
     
     char_name = character['name']
-    
-    # 2. 비즈니스 로직 실행 (서비스 레이어)
-    result = use_item(char_name, item_name)
+
+    # 2. 비즈니스 로직 실행 (서비스 레이어) — 동시성 보호
+    with get_character_lock(char_name):
+        result = use_item(char_name, item_name)
     
     # 3. 결과에 따른 응답 메시지 반환
     if not result.success:
@@ -67,15 +69,15 @@ def handle(status_id: str, user: str, character: Dict, args: List[str]) -> str:
         lines = [f"{josa(item_name, '을/를')} 사용했습니다."]
 
     lines.append("")
-    lines.append(f"➭ {item_name} 사용")
+    lines.append(f"- {item_name} 사용")
 
     if result.applied_delta is not None and result.stat_display:
         sign = "+" if result.applied_delta >= 0 else ""
-        lines.append(f"➭ {result.stat_display} {result.dice_expression} = {sign}{result.applied_delta}")
+        lines.append(f"- {result.stat_display} {result.dice_expression} = {sign}{result.applied_delta}")
         if result.new_stat_value is not None:
-            lines.append(f"➭ 현재 {result.stat_display} {result.new_stat_value}")
+            lines.append(f"- 현재 {result.stat_display} {result.new_stat_value}")
 
     if result.remaining_count > 0:
-        lines.append(f"➭ 남은 수량 {result.remaining_count}개")
+        lines.append(f"- 남은 수량 {result.remaining_count}개")
 
     return "\n".join(lines)
