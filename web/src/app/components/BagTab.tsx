@@ -399,14 +399,14 @@ const GridCell = memo(function GridCell({ rowIndex, colIndex, cellData, onDrop, 
 });
 
 interface TrashZoneProps {
-  onDrop: (item: Item | NearbyItem) => void;
+  onDrop: (item: Item | NearbyItem, itemType: string) => void;
 }
 
 const TrashZone = memo(function TrashZone({ onDrop }: TrashZoneProps) {
   const [{ isOver, canDrop }, drop] = useDrop({
     accept: ['item', 'nearby', 'freeitem'],
-    drop: (item: Item | NearbyItem) => {
-      onDrop(item);
+    drop: (item: Item | NearbyItem, monitor) => {
+      onDrop(item, monitor.getItemType() as string);
     },
     collect: (monitor) => ({
       isOver: monitor.isOver(),
@@ -936,14 +936,15 @@ function BagTabContent({ gridSize, timeRemaining, formatTime, timerLabel, charac
     }
   };
 
-  const handleTrashDrop = (draggedItem: Item | NearbyItem) => {
-    if ('gridPosition' in draggedItem) {
+  const handleTrashDrop = (draggedItem: Item | NearbyItem, itemType: string) => {
+    if (itemType === 'item') {
+      // 가방 아이템
       setItems((prev) => prev.filter((i) => i.id !== draggedItem.id));
-    } else if ('count' in draggedItem && draggedItem.volume === 0) {
+    } else if (itemType === 'freeitem') {
       // 여유공간 아이템
       setFreeItems((prev) => prev.filter((i) => i.id !== draggedItem.id));
     } else {
-      // 주변 아이템
+      // 주변 아이템 (itemType === 'nearby')
       setNearbyItems((prev) => prev.filter((i) => i.id !== draggedItem.id));
     }
   };
