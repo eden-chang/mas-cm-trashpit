@@ -28,7 +28,8 @@ interface NearbyItem {
   ids?: string[]; // 그룹화된 아이템 ID들
 }
 
-// 부피별 가능한 모양들 (상대 좌표)
+// 부피별 가능한 모양들 (상대 좌표, 첫 번째 셀이 (0,0) 앵커)
+// 음수 오프셋: 앵커 기준 왼쪽/위로 확장 (CSS absolute positioning으로 렌더링)
 type ShapePattern = Array<{ row: number; col: number }>;
 
 const SHAPES: Record<number, ShapePattern[]> = {
@@ -40,25 +41,74 @@ const SHAPES: Record<number, ShapePattern[]> = {
     [{ row: 0, col: 0 }, { row: 1, col: 0 }], // 세로 2×1
   ],
   3: [
+    // 직선 (2가지)
     [{ row: 0, col: 0 }, { row: 0, col: 1 }, { row: 0, col: 2 }], // 가로 1×3
     [{ row: 0, col: 0 }, { row: 1, col: 0 }, { row: 2, col: 0 }], // 세로 3×1
-    [{ row: 0, col: 0 }, { row: 1, col: 0 }, { row: 0, col: 1 }], // L자
-    [{ row: 0, col: 0 }, { row: 0, col: 1 }, { row: 1, col: 1 }], // ㄱ자
+    // L자 4방향 회전
+    [{ row: 0, col: 0 }, { row: 0, col: 1 }, { row: 1, col: 0 }], // ┘ (XX / X.)
+    [{ row: 0, col: 0 }, { row: 0, col: 1 }, { row: 1, col: 1 }], // └ (XX / .X)
+    [{ row: 0, col: 0 }, { row: 1, col: 0 }, { row: 1, col: 1 }], // ┐ (X. / XX)
+    [{ row: 0, col: 0 }, { row: 1, col: -1 }, { row: 1, col: 0 }], // ┌ (.X / XX)
   ],
   4: [
+    // 직선 (2가지)
     [{ row: 0, col: 0 }, { row: 0, col: 1 }, { row: 0, col: 2 }, { row: 0, col: 3 }], // 가로 1×4
     [{ row: 0, col: 0 }, { row: 1, col: 0 }, { row: 2, col: 0 }, { row: 3, col: 0 }], // 세로 4×1
-    [{ row: 0, col: 0 }, { row: 0, col: 1 }, { row: 1, col: 0 }, { row: 1, col: 1 }], // 정사각형 2×2
-    [{ row: 0, col: 0 }, { row: 1, col: 0 }, { row: 2, col: 0 }, { row: 2, col: 1 }], // L자
-    [{ row: 0, col: 0 }, { row: 0, col: 1 }, { row: 1, col: 1 }, { row: 2, col: 1 }], // ㄴ자
+    // 정사각형
+    [{ row: 0, col: 0 }, { row: 0, col: 1 }, { row: 1, col: 0 }, { row: 1, col: 1 }], // 2×2
+    // L자 4방향 회전
+    [{ row: 0, col: 0 }, { row: 1, col: 0 }, { row: 2, col: 0 }, { row: 2, col: 1 }],   // L-0: X./X./XX
+    [{ row: 0, col: 0 }, { row: 0, col: 1 }, { row: 0, col: 2 }, { row: 1, col: 0 }],   // L-90: XXX/X..
+    [{ row: 0, col: 0 }, { row: 0, col: 1 }, { row: 1, col: 1 }, { row: 2, col: 1 }],   // L-180: XX/.X/.X
+    [{ row: 0, col: 0 }, { row: 1, col: -2 }, { row: 1, col: -1 }, { row: 1, col: 0 }], // L-270: ..X/XXX
+    // J자 4방향 회전 (L 거울)
+    [{ row: 0, col: 0 }, { row: 1, col: 0 }, { row: 2, col: -1 }, { row: 2, col: 0 }],  // J-0: .X/.X/XX
+    [{ row: 0, col: 0 }, { row: 1, col: 0 }, { row: 1, col: 1 }, { row: 1, col: 2 }],   // J-90: X../XXX
+    [{ row: 0, col: 0 }, { row: 0, col: 1 }, { row: 1, col: 0 }, { row: 2, col: 0 }],   // J-180: XX/X./X.
+    [{ row: 0, col: 0 }, { row: 0, col: 1 }, { row: 0, col: 2 }, { row: 1, col: 2 }],   // J-270: XXX/..X
   ],
   6: [
-    [{ row: 0, col: 0 }, { row: 0, col: 1 }, { row: 0, col: 2 }, { row: 0, col: 3 }, { row: 0, col: 4 }, { row: 0, col: 5 }], // 가로 1×6
-    [{ row: 0, col: 0 }, { row: 1, col: 0 }, { row: 2, col: 0 }, { row: 3, col: 0 }, { row: 4, col: 0 }, { row: 5, col: 0 }], // 세로 6×1
     [{ row: 0, col: 0 }, { row: 0, col: 1 }, { row: 0, col: 2 }, { row: 1, col: 0 }, { row: 1, col: 1 }, { row: 1, col: 2 }], // 2×3
     [{ row: 0, col: 0 }, { row: 1, col: 0 }, { row: 2, col: 0 }, { row: 0, col: 1 }, { row: 1, col: 1 }, { row: 2, col: 1 }], // 3×2
+    [{ row: 0, col: 0 }, { row: 0, col: 1 }, { row: 0, col: 2 }, { row: 0, col: 3 }, { row: 0, col: 4 }, { row: 0, col: 5 }], // 가로 1×6
+    [{ row: 0, col: 0 }, { row: 1, col: 0 }, { row: 2, col: 0 }, { row: 3, col: 0 }, { row: 4, col: 0 }, { row: 5, col: 0 }], // 세로 6×1
   ],
 };
+
+/**
+ * 5칸 이상: 최대한 박스(직사각형) 형태로 자동 생성
+ * 정사각형에 가까운 순서대로 정렬
+ */
+function generateRectShapes(volume: number): ShapePattern[] {
+  const shapes: ShapePattern[] = [];
+  for (let rows = 1; rows <= volume; rows++) {
+    if (volume % rows !== 0) continue;
+    const cols = volume / rows;
+    const shape: ShapePattern = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        shape.push({ row: r, col: c });
+      }
+    }
+    shapes.push(shape);
+  }
+  // 정사각형에 가까운 순서대로 정렬
+  shapes.sort((a, b) => {
+    const aR = Math.max(...a.map(p => p.row)) + 1;
+    const aC = Math.max(...a.map(p => p.col)) + 1;
+    const bR = Math.max(...b.map(p => p.row)) + 1;
+    const bC = Math.max(...b.map(p => p.col)) + 1;
+    return Math.abs(aR - aC) - Math.abs(bR - bC);
+  });
+  return shapes;
+}
+
+// 5~20칸: 직사각형 모양 자동 생성
+for (let v = 2; v <= 20; v++) {
+  if (!SHAPES[v]) {
+    SHAPES[v] = generateRectShapes(v);
+  }
+}
 
 // ============================================================
 // 랜덤 색상 생성 함수
@@ -197,17 +247,18 @@ const GridCell = memo(function GridCell({ rowIndex, colIndex, cellData, onDrop, 
 
   const [{ isDragging }, drag] = useDrag({
     type: 'item',
-    item: item && isFirst ? item : null,
-    canDrag: () => !!(item && isFirst),
-    collect: (monitor) => {
-      const isDragging = monitor.isDragging();
-      if (isDragging && item && isFirst && onDragStart) {
-        onDragStart(item);
-      }
-      return {
-        isDragging,
-      };
+    item: () => {
+      if (!item || !isFirst) return null;
+      if (onDragStart) onDragStart(item);
+      return item;
     },
+    canDrag: () => !!(item && isFirst),
+    end: () => {
+      if (onDragEnd) onDragEnd();
+    },
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
   });
 
   const ref = (node: HTMLDivElement | null) => {
@@ -867,15 +918,21 @@ function BagTabContent({ gridSize, timeRemaining, formatTime, timerLabel, charac
 
   const handleItemClick = (item: Item) => {
     const shapeCount = SHAPES[item.volume]?.length || 1;
-    const nextShapeIndex = ((item.shapeIndex || 0) + 1) % shapeCount;
-    
-    // 새 모양으로 배치 가능한지 확인
-    if (item.gridPosition && canPlaceItem(item, item.gridPosition.row, item.gridPosition.col, nextShapeIndex)) {
-      setItems((prev) =>
-        prev.map((i) =>
-          i.id === item.id ? { ...i, shapeIndex: nextShapeIndex } : i
-        )
-      );
+    if (shapeCount <= 1) return; // 회전 불가
+
+    const currentIndex = item.shapeIndex || 0;
+
+    // 다음 맞는 모양 찾기 (현재 위치에 배치 가능한 모양으로 순환)
+    for (let i = 1; i < shapeCount; i++) {
+      const nextIndex = (currentIndex + i) % shapeCount;
+      if (item.gridPosition && canPlaceItem(item, item.gridPosition.row, item.gridPosition.col, nextIndex)) {
+        setItems((prev) =>
+          prev.map((it) =>
+            it.id === item.id ? { ...it, shapeIndex: nextIndex } : it
+          )
+        );
+        return;
+      }
     }
   };
 
@@ -1189,11 +1246,16 @@ function BagTabContent({ gridSize, timeRemaining, formatTime, timerLabel, charac
               
               const totalCellSize = cellSize + gapSize;
               
-              const blockWidth = (Math.max(...shape.map(p => p.col)) + 1) * cellSize + Math.max(...shape.map(p => p.col)) * gapSize;
-              const blockHeight = (Math.max(...shape.map(p => p.row)) + 1) * cellSize + Math.max(...shape.map(p => p.row)) * gapSize;
-              
-              const left = hoverPosition.col * totalCellSize;
-              const top = hoverPosition.row * totalCellSize;
+              const minCol = Math.min(...shape.map(p => p.col));
+              const maxCol = Math.max(...shape.map(p => p.col));
+              const minRow = Math.min(...shape.map(p => p.row));
+              const maxRow = Math.max(...shape.map(p => p.row));
+
+              const blockWidth = (maxCol - minCol + 1) * cellSize + (maxCol - minCol) * gapSize;
+              const blockHeight = (maxRow - minRow + 1) * cellSize + (maxRow - minRow) * gapSize;
+
+              const left = (hoverPosition.col + minCol) * totalCellSize;
+              const top = (hoverPosition.row + minRow) * totalCellSize;
               
               return (
                 <div
@@ -1275,8 +1337,12 @@ function BagTabContent({ gridSize, timeRemaining, formatTime, timerLabel, charac
         </section>
       </div>
 
-      {/* 하단: 버리기 영역 */}
-      <section className="shrink-0 relative z-10" aria-label="버리기">
+      {/* 하단: 버리기 영역 (sticky: 드래그 중에도 항상 보이도록) */}
+      <section
+        className="shrink-0 relative z-20 sticky bottom-0 pb-1"
+        style={{ backgroundColor: 'var(--bg)' }}
+        aria-label="버리기"
+      >
         <TrashZone onDrop={handleTrashDrop} />
       </section>
     </div>

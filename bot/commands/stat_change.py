@@ -6,6 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from shared.constants import STAT_INPUT_TO_KEY, STAT_KEY_TO_DISPLAY_NAME
+from bot.utils.korean import josa
 from bot.logger import get_logger
 from bot.services.character_service import get_character_by_mastodon_id
 from bot.services.inventory_service import update_stat
@@ -52,4 +53,4 @@ def handle(status_id: str, user: str, args: list[str]) -> str | None:
     new_value = current + delta
     display = STAT_KEY_TO_DISPLAY_NAME.get(stat_key, stat_key)
     logger.info(f"stat_change: 성공 user={user} char={char_name} {display} {current}→{new_value}")
-    return f"@{user} {display}이(가) {current} → {new_value}로 변경되었습니다."
+    return f"@{user} {josa(display, '이/가')} {current} → {new_value}로 변경되었습니다."

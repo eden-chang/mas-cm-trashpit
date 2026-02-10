@@ -28,6 +28,10 @@ def handle(status_id: str, user: str, args: list[str]) -> Optional[str]:
 
     base = f"{name}({price_str}): {desc}" if price_str == "비매품" else f"{name} ({price_str}) : {desc}"
 
+    # 사용 불가 아이템
+    if stat == "사용 불가":
+        return f"@{user} {base} [명령어 사용 불가]"
+
     if stat and value_raw is not None and str(value_raw).strip():
         value_str = str(value_raw).strip()
         if is_dice_expression(value_str):

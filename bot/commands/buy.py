@@ -7,6 +7,7 @@ from bot.logger import get_logger
 from bot.services.character_service import get_character_by_mastodon_id
 from bot.services.item_service import get_item_info, parse_sellable_price
 from bot.services.inventory_service import update_stat, add_item
+from bot.utils.korean import josa
 
 logger = get_logger()
 
@@ -51,7 +52,7 @@ def handle(status_id: str, user: str, args: list[str]) -> Optional[str]:
 
     unit_price = parse_sellable_price(info.get("price"))
     if unit_price is None:
-        return f"@{user} '{item_name}'은(는) 비매품으로 구매할 수 없습니다."
+        return f"@{user} {josa(item_name, '은/는')} 비매품으로 구매할 수 없습니다."
 
     total_cost = unit_price * quantity
 
@@ -97,12 +98,16 @@ def handle(status_id: str, user: str, args: list[str]) -> Optional[str]:
             return f"@{user} 아이템 추가에 실패했습니다. 포인트는 차감되지 않았습니다."
 
         remaining = current_points - total_cost
+        location_label = "여유공간" if location == "misc" else "주변 공간"
         lines = [
-            f"@{user} {canonical_name}을(를) 구매했습니다.",
+            f"@{user} {josa(canonical_name, '을/를')} 구매했습니다.",
             f"➭ -{total_cost}포인트",
             f"➭ {canonical_name} {quantity}개 획득",
             f"➭ 잔액 {remaining}포인트",
+            "",
+            "설명을 확인하시려면 [설명/아이템명]을 사용하세요.",
+            f"구매한 아이템은 {location_label}에 들어갔으므로, 아이템을 가방에 넣기 위해서는 인벤토리를 편집하시기 바랍니다.",
         ]
-        return "\n\n" + "\n".join(lines)
+        return "\n".join(lines)
     finally:
         lock.release()

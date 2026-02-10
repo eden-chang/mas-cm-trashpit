@@ -4,6 +4,7 @@ Phase 5.3 문서에 따른 알림 템플릿 및 전송 함수
 """
 
 from .mastodon_client import get_client
+from .utils.korean import josa
 from .logger import get_logger
 
 logger = get_logger()
@@ -22,7 +23,7 @@ class NotificationTemplates:
         """아이템 양도 수신 알림"""
         qty_str = f" x{quantity}" if quantity > 1 else ""
         return (
-            f"📦 {sender_name}님이 {item_name}{qty_str}을(를) 양도했습니다!\n"
+            f"📦 {sender_name}님이 {josa(item_name + qty_str, '을/를')} 양도했습니다!\n"
             f"{location}에서 확인하세요."
         )
 
@@ -79,7 +80,7 @@ class NotificationTemplates:
     @staticmethod
     def item_used(item_name: str, effect: str, remaining: int) -> str:
         """아이템 사용 알림"""
-        msg = f"✨ {item_name}을(를) 사용했습니다!\n{effect}"
+        msg = f"✨ {josa(item_name, '을/를')} 사용했습니다!\n{effect}"
         if remaining > 0:
             msg += f"\n남은 수량: {remaining}개"
         else:

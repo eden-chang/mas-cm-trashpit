@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from bot.services.inventory_service import remove_item, find_item_location
 from bot.utils.decorators import require_character
 from bot.utils.validation import validate_item_name
+from bot.utils.korean import josa
 from bot.logger import get_logger
 from shared.constants import ErrorMessages
 
@@ -59,7 +60,7 @@ def handle(status_id: str, user: str, character: Dict, args: List[str]) -> str:
             logger.command_error(user, "버리기", f"remove_item 실패: {item_name}")
             return ErrorMessages.SYSTEM_ERROR.format(user=user)
         
-        return f"@{user} '{item_name}'을(를) 버렸습니다."
+        return f"@{user} {josa(item_name, '을/를')} 버렸습니다."
         
     except _DISCARD_HANDLED_EXCEPTIONS as e:
         logger.command_error(user, "버리기", f"예외 발생: {type(e).__name__}: {e}", exc_info=False)

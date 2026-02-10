@@ -187,8 +187,8 @@ MAX_ITEM_NAME_LENGTH: Final[int] = 50
 class ErrorMessages:
     """에러 메시지 템플릿 (일관성 유지)"""
     CHARACTER_NOT_FOUND: Final[str] = "@{user} 등록된 캐릭터를 찾을 수 없습니다."
-    ITEM_NOT_FOUND: Final[str] = "@{user} '{item_name}'은(는) 존재하지 않는 아이템입니다."
-    ITEM_NOT_IN_INVENTORY: Final[str] = "@{user} '{item_name}'을(를) 소지하고 있지 않습니다."
+    ITEM_NOT_FOUND: Final[str] = "@{user} '{item_name}' 아이템이 존재하지 않습니다."
+    ITEM_NOT_IN_INVENTORY: Final[str] = "@{user} '{item_name}' 아이템을 소지하고 있지 않습니다."
     ITEM_INFO_NOT_FOUND: Final[str] = "@{user} '{item_name}' 정보를 찾을 수 없습니다."
     SYSTEM_ERROR: Final[str] = "@{user} 시스템 오류가 발생했습니다."
     TRANSACTION_ERROR: Final[str] = "@{user} 처리 중 오류가 발생했습니다. 다시 시도해 주세요."

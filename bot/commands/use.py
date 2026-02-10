@@ -10,6 +10,7 @@ from shared.constants import ErrorMessages
 from bot.services.use_item_service import use_item
 from bot.utils.decorators import require_character
 from bot.utils.validation import validate_item_name
+from bot.utils.korean import josa
 from bot.logger import get_logger
 
 logger = get_logger()
@@ -48,6 +49,8 @@ def handle(status_id: str, user: str, character: Dict, args: List[str]) -> str:
             return ErrorMessages.ITEM_NOT_IN_INVENTORY.format(user=user, item_name=item_name)
         elif result.error_code == "ITEM_INFO_NOT_FOUND":
             return ErrorMessages.ITEM_INFO_NOT_FOUND.format(user=user, item_name=item_name)
+        elif result.error_code == "ITEM_NOT_USABLE":
+            return f"@{user} '{item_name}' 아이템은 명령어로 사용할 수 없습니다."
         elif result.error_code == "REMOVE_ITEM_FAILED":
             return ErrorMessages.SYSTEM_ERROR.format(user=user)
         elif result.error_code == "TRANSACTION_FAILED":
@@ -58,8 +61,21 @@ def handle(status_id: str, user: str, character: Dict, args: List[str]) -> str:
             return ErrorMessages.DB_ERROR.format(user=user)
     
     # 4. 성공 응답 메시지 생성
-    msg = f"@{user} {item_name}을(를) 사용했습니다!\n{result.effect_message}"
+    if result.effect_message:
+        lines = [result.effect_message]
+    else:
+        lines = [f"{josa(item_name, '을/를')} 사용했습니다."]
+
+    lines.append("")
+    lines.append(f"➭ {item_name} 사용")
+
+    if result.applied_delta is not None and result.stat_display:
+        sign = "+" if result.applied_delta >= 0 else ""
+        lines.append(f"➭ {result.stat_display} {result.dice_expression} = {sign}{result.applied_delta}")
+        if result.new_stat_value is not None:
+            lines.append(f"➭ 현재 {result.stat_display} {result.new_stat_value}")
+
     if result.remaining_count > 0:
-        msg += f"\n(남은 수량: {result.remaining_count})"
-    
-    return msg
+        lines.append(f"➭ 남은 수량 {result.remaining_count}개")
+
+    return "\n".join(lines)

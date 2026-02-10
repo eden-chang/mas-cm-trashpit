@@ -10,6 +10,7 @@ from bot.services.inventory_service import (
     update_stat,
 )
 from bot.notifications import notify_item_received
+from bot.utils.korean import josa
 from bot.logger import get_logger
 
 logger = get_logger()
@@ -46,7 +47,7 @@ def handle_item(status_id: str, user: str, args: list) -> str:
 
     receiver = get_character(target_name)
     if not receiver:
-        msg = f"@{user} 받는 사람 '{target_name}'을(를) 찾을 수 없습니다."
+        msg = f"@{user} 받는 사람 {josa(target_name, '을/를')} 찾을 수 없습니다."
         logger.command_error(user, "양도", f"받는 사람 없음: {target_name}")
         return msg
     if sender_char_name == target_name:

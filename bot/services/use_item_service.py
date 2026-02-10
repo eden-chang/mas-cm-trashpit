@@ -7,7 +7,8 @@ from dataclasses import dataclass
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from shared.constants import ManagementColumns, LOCATION_TO_DB_COLUMN
+from shared.constants import ManagementColumns, LOCATION_TO_DB_COLUMN, STAT_KEY_TO_DISPLAY_NAME, STAT_INPUT_TO_KEY
+from bot.services.character_service import get_character
 from bot.services.item_service import get_item_info
 from bot.services.inventory_service import (
     remove_item,
@@ -23,6 +24,7 @@ logger = get_logger()
 
 # 아이템 스탯명 -> 관리 시트 컬럼 인덱스
 _STAT_COLUMN = {
+    "hp": ManagementColumns.HP,
     "체력": ManagementColumns.HEALTH,
     "근력": ManagementColumns.STRENGTH,
     "행운": ManagementColumns.LUCK,
@@ -30,13 +32,14 @@ _STAT_COLUMN = {
 
 # 스탯 컬럼명 매핑 (Supabase 컬럼명)
 _STAT_TO_DB_COLUMN = {
+    ManagementColumns.HP: "hp",
     ManagementColumns.HEALTH: "con",
     ManagementColumns.STRENGTH: "str",
     ManagementColumns.LUCK: "luck",
 }
 
-# 트랜잭션 사용 가능 여부 캐시
-_transaction_available: Optional[bool] = None
+# 트랜잭션 사용 가능 여부 캐시 (RPC 함수 미존재, 기본 비활성)
+_transaction_available: Optional[bool] = False
 
 
 @dataclass
@@ -46,6 +49,9 @@ class UseItemResult:
     error_code: Optional[str] = None
     applied_delta: Optional[int] = None
     stat_name: Optional[str] = None
+    stat_display: str = ""
+    dice_expression: str = ""
+    new_stat_value: Optional[int] = None
     remaining_count: int = 0
     effect_message: str = ""
     item_name: str = ""
@@ -84,19 +90,53 @@ def use_item(char_name: str, item_name: str) -> UseItemResult:
                 error_code="ITEM_INFO_NOT_FOUND",
                 item_name=item_name
             )
-        
+
+        # 2-1. 사용 불가 아이템 차단
+        if (item_info.get("stat") or "").strip() == "사용 불가":
+            return UseItemResult(
+                success=False,
+                error_code="ITEM_NOT_USABLE",
+                item_name=item_name
+            )
+
         # 3. 스탯 정보 준비
-        stat_col = _STAT_COLUMN.get((item_info.get("stat") or "").strip())
-        value_raw = item_info.get("value")
         stat_name = (item_info.get("stat") or "").strip()
+        stat_col = _STAT_COLUMN.get(stat_name)
+        value_raw = item_info.get("value")
         applied_delta: Optional[int] = None
-        
+        dice_expression = str(value_raw).strip() if value_raw not in (None, "") else ""
+
+        # 표시명 매핑: 아이템 스탯명 → 내부 키 → 표시명
+        stat_key = STAT_INPUT_TO_KEY.get(stat_name.lower(), "")
+        stat_display = STAT_KEY_TO_DISPLAY_NAME.get(stat_key, stat_name) if stat_key else stat_name
+
         if stat_col is not None and value_raw not in (None, ""):
             try:
-                applied_delta = roll_dice(str(value_raw).strip())
+                applied_delta = roll_dice(dice_expression)
             except Exception as e:
                 logger.error(f"다이스 굴림 오류: {e}", exc_info=True)
                 applied_delta = 0
+
+        # 변경 전 스탯 값 조회 (new_stat_value 계산용 + HP 상한 클램프)
+        current_stat_value: Optional[int] = None
+        if stat_key and applied_delta is not None:
+            char_data = get_character(char_name)
+            if char_data:
+                raw = char_data.get(stat_key, 0) or 0
+                try:
+                    current_stat_value = int(raw)
+                except (TypeError, ValueError):
+                    current_stat_value = 0
+
+                # HP 상한: 최대 hp = 체력 * 10
+                if stat_key == "hp" and applied_delta > 0:
+                    health_raw = char_data.get("health", 0) or 0
+                    try:
+                        max_hp = int(health_raw) * 10
+                    except (TypeError, ValueError):
+                        max_hp = 0
+                    if current_stat_value + applied_delta > max_hp:
+                        applied_delta = max(0, max_hp - current_stat_value)
         
         # 4. 트랜잭션 가능 여부 확인 (첫 호출 시만)
         if _transaction_available is None:
@@ -134,27 +174,32 @@ def use_item(char_name: str, item_name: str) -> UseItemResult:
                     item_name=item_name
                 )
             
-            # 스탯 업데이트 (있는 경우)
-            if stat_col is not None and applied_delta is not None and applied_delta != 0:
-                if not update_stat(char_name, stat_col, applied_delta):
-                    logger.warning(f"update_stat 실패: {char_name}, {stat_col}, {applied_delta}")
+            # 스탯 업데이트 (있는 경우) — stat_key는 문자열 키 (hp, health 등)
+            if stat_key and applied_delta is not None and applied_delta != 0:
+                if not update_stat(char_name, stat_key, applied_delta):
+                    logger.warning(f"update_stat 실패: {char_name}, {stat_key}, {applied_delta}")
         
         # 6. 남은 수량 확인
         remaining = get_item_count(char_name, item_name)
-        
-        # 7. 효과 메시지 생성
-        if applied_delta is not None and stat_name:
-            effect_msg = item_info.get("use_msg") or f"효과: {stat_name} {applied_delta:+d}"
-        else:
-            effect_msg = item_info.get("use_msg") or f"효과: {stat_name} {item_info.get('value', '')}"
-        
+
+        # 7. 변경 후 스탯 값 계산
+        new_stat_value: Optional[int] = None
+        if current_stat_value is not None and applied_delta is not None:
+            new_stat_value = current_stat_value + applied_delta
+
+        # 8. 효과 메시지 (use_script만, fallback 혼합 안 함)
+        effect_msg = (item_info.get("use_msg") or "").strip()
+
         return UseItemResult(
             success=True,
             applied_delta=applied_delta,
             stat_name=stat_name,
+            stat_display=stat_display,
+            dice_expression=dice_expression,
+            new_stat_value=new_stat_value,
             remaining_count=remaining,
             effect_message=effect_msg,
-            item_name=item_name
+            item_name=item_name,
         )
         
     except Exception as e:

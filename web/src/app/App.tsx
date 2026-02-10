@@ -428,15 +428,6 @@ export default function App() {
                     aria-label={`${character.name}, HP ${character.hp}/${character.maxHp}, 가방 ${character.capacity}/${character.gridSize}`}
                   >
                     <div className="flex items-center gap-3">
-                      {/* Avatar */}
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold shrink-0 ${
-                        isActive
-                          ? 'bg-[var(--blue)] text-white'
-                          : 'bg-[var(--bg-light)] text-[var(--text-muted)]'
-                      }`}>
-                        {character.name[0]}
-                      </div>
-
                       <div className="flex-1 min-w-0 space-y-2">
                         {/* Name and STR */}
                         <div className="flex items-center justify-between">
@@ -515,8 +506,9 @@ export default function App() {
             )}
 
             {/* 안내 문구 */}
-            <p className="text-[10px] leading-tight" style={{ color: 'var(--danger)' }}>
-             동기화 버튼은 수정을 모두 마치고 딱 한번만 눌러주세요! 업데이트 한도에 걸리면 수정 사항이 반영되지 않습니다.
+            <p className="text-[10px] leading-tight text-center" style={{ color: 'var(--danger)' }}>
+              동기화 버튼은 수정을 모두 마치고 딱 한번만 눌러주세요!<br />
+              업데이트 한도에 걸리면 수정 사항이 반영되지 않습니다.
             </p>
 
             {/* Sync to Cloud button — 수정사항 있을 때만 "변경사항 동기화!" + 깜빡임 */}

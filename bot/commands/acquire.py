@@ -10,6 +10,7 @@ from bot.services.item_service import get_item_info
 from bot.services.inventory_service import add_item, get_available_space
 from bot.utils.decorators import require_character
 from bot.utils.validation import validate_item_name
+from bot.utils.korean import josa
 from bot.logger import get_logger
 from shared.constants import (
     InventoryLocation,
@@ -78,13 +79,13 @@ def handle(status_id: str, user: str, character: Dict, args: List[str]) -> str:
         
         if volume == ZERO_VOLUME_THRESHOLD:
             return (
-                f"@{user} {item_name}을(를) 획득했습니다! (부피 0)\n"
+                f"@{user} {josa(item_name, '을/를')} 획득했습니다! (부피 0)\n"
                 f"자동으로 여유공간에 보관되었습니다.\n"
                 f"가방 남은 공간: {available}칸"
             )
-        
+
         return (
-            f"@{user} {item_name}을(를) 획득했습니다! (부피: {volume})\n"
+            f"@{user} {josa(item_name, '을/를')} 획득했습니다! (부피: {volume})\n"
             f"가방 남은 공간: {available}칸\n"
             f"웹에서 가방에 넣으세요."
         )

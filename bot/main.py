@@ -173,13 +173,18 @@ def on_notification(notification: dict):
         try:
             result = handler(status_id, user, args)
             if result is not None:
+                # 핸들러가 붙인 @user 접두사 제거 (status_reply가 자동 추가)
+                if result.startswith(f"@{user}"):
+                    result = result[len(f"@{user}"):].lstrip()
+                # 봇 접두사 추가
+                result = f"*\n{result}"
                 reply(status_id, result, visibility=visibility)
         except _HANDLER_IO_EXCEPTIONS as e:
             logger.command_error(user, cmd_type, str(e), exc_info=False)
-            reply(status_id, f"@{user} 시스템 오류가 발생했습니다. 잠시 후 다시 시도해주세요.", visibility=visibility)
+            reply(status_id, f"*\n시스템 오류가 발생했습니다. 잠시 후 다시 시도해주세요.", visibility=visibility)
         except Exception as e:
             logger.command_error(user, cmd_type, str(e), exc_info=True)
-            reply(status_id, f"@{user} 시스템 오류가 발생했습니다. 잠시 후 다시 시도해주세요.", visibility=visibility)
+            reply(status_id, f"*\n시스템 오류가 발생했습니다. 잠시 후 다시 시도해주세요.", visibility=visibility)
 
 
 def signal_handler(signum, frame):
@@ -214,7 +219,19 @@ def run_polling_loop():
     """폴링 루프 실행"""
     consecutive_failures = 0
     max_consecutive_failures = 5
-    last_id = None
+
+    # 시작 시 기존 알림을 모두 건너뛰고, 이후 새 알림만 처리
+    try:
+        existing = get_notifications(since_id=None)
+        if existing:
+            last_id = existing[0]["id"]  # 가장 최신 알림 ID
+            logger.info(f"기존 알림 {len(existing)}개 건너뜀 (last_id={last_id})")
+        else:
+            last_id = None
+            logger.info("기존 알림 없음, 처음부터 폴링 시작")
+    except Exception as e:
+        logger.warning(f"초기 알림 조회 실패, last_id=None으로 시작: {e}")
+        last_id = None
 
     while True:
         try:

@@ -100,17 +100,20 @@ class BotLogger:
         else:
             self.logger.info(f"{prefix} {message}")
 
-    def info(self, message: str):
-        self.logger.info(message)
+    def info(self, message: str, *args, **kwargs):
+        self.logger.info(message, *args, **kwargs)
 
-    def warning(self, message: str):
-        self.logger.warning(message)
+    def warning(self, message: str, *args, **kwargs):
+        self.logger.warning(message, *args, **kwargs)
 
-    def error(self, message: str):
-        self.logger.error(message)
+    def error(self, message: str, *args, **kwargs):
+        self.logger.error(message, *args, **kwargs)
 
-    def debug(self, message: str):
-        self.logger.debug(message)
+    def exception(self, message: str, *args, **kwargs):
+        self.logger.exception(message, *args, **kwargs)
+
+    def debug(self, message: str, *args, **kwargs):
+        self.logger.debug(message, *args, **kwargs)
 
 
 # 싱글톤 인스턴스
