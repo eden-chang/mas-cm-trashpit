@@ -103,8 +103,8 @@ function generateRectShapes(volume: number): ShapePattern[] {
   return shapes;
 }
 
-// 5~20칸: 직사각형 모양 자동 생성
-for (let v = 2; v <= 20; v++) {
+// 직사각형 모양 자동 생성 (최대 아이템 부피 40까지)
+for (let v = 2; v <= 40; v++) {
   if (!SHAPES[v]) {
     SHAPES[v] = generateRectShapes(v);
   }
