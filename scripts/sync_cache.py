@@ -36,9 +36,8 @@ def preload_data() -> dict:
         로드된 데이터 요약
     """
     from api.services.sheet_service import get_all_characters
-    from api.services.item_service import get_all_items, refresh_cache
+    from api.services.item_service import get_all_items
 
-    refresh_cache()
     characters = get_all_characters()
     items = get_all_items()
 

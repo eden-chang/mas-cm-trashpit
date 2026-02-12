@@ -9,7 +9,6 @@ import logging
 from flask import Blueprint, jsonify
 
 from shared.cache import invalidate_cache, get_cache_stats, cleanup_expired
-from api.services.item_service import refresh_cache as refresh_item_cache
 
 logger = logging.getLogger(__name__)
 
@@ -43,22 +42,6 @@ def cleanup_cache():
         "message": f"만료 캐시 {count}건 정리됨",
     })
 
-
-@bp.route("/items/refresh", methods=["POST"])
-def refresh_items():
-    """아이템 캐시 새로고침. 상점 시트 업데이트 시 호출."""
-    try:
-        refresh_item_cache()
-        return jsonify({
-            "success": True,
-            "message": "아이템 캐시 새로고침 완료",
-        })
-    except Exception as e:
-        logger.exception("아이템 캐시 새로고침 실패")
-        return jsonify({
-            "success": False,
-            "error": str(e),
-        }), 500
 
 
 @bp.route("/characters/refresh", methods=["POST"])

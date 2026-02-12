@@ -1,23 +1,18 @@
-"""아이템 서비스 (Supabase 버전 - 캐시 적용)
-
-아이템 데이터는 자주 변경되지 않으므로 캐싱 적용.
-"""
+"""아이템 서비스 (Supabase 버전 - 매 조회 시 DB 직접 조회)"""
 
 import re
 import sys
-import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TypedDict
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from shared.supabase_client import get_supabase, TABLE_ITEMS
-from shared.config import CACHE_TTL
 from bot.logger import get_logger
 
 logger = get_logger()
 
-# 캐시에 저장되는 아이템 정보 형태 (price/value는 DB에서 문자열·숫자 혼용)
+# 아이템 정보 형태 (price/value는 DB에서 문자열·숫자 혼용)
 class ItemInfo(TypedDict, total=False):
     name: str
     price: Any
@@ -26,11 +21,6 @@ class ItemInfo(TypedDict, total=False):
     stat: str
     value: Any
     volume: int
-
-
-# 캐시 저장소
-_items_cache: Dict[str, Dict[str, Any]] = {}
-_cache_time: float = 0
 
 
 def _normalize_item_name(name: str) -> str:
@@ -82,80 +72,84 @@ def format_price_display(price: Any) -> str:
         return "비매품"
 
 
-def _is_cache_valid() -> bool:
-    """캐시 유효성 확인 (TTL 기반)"""
-    return _cache_time > 0 and (time.time() - _cache_time) < CACHE_TTL
+def _row_to_item_dict(row: dict) -> Optional[Dict[str, Any]]:
+    """Supabase 행을 아이템 딕셔너리로 변환"""
+    name = (row.get("name") or "").strip()
+    if not name:
+        return None
+
+    raw_size = row.get("size")
+    try:
+        volume = int(raw_size) if raw_size is not None else 0
+    except (ValueError, TypeError):
+        volume = 0
+
+    return {
+        'name': name,
+        'price': row.get("price", ""),
+        'desc': row.get("description", ""),
+        'use_msg': row.get("use_script", ""),
+        'stat': row.get("change_stats", ""),
+        'value': row.get("change_value", ""),
+        'volume': max(0, volume),
+    }
 
 
-def _load_items_cache() -> None:
-    """Supabase에서 전체 아이템 로드"""
-    global _items_cache, _cache_time
+def _fetch_all_items() -> Dict[str, Dict[str, Any]]:
+    """Supabase에서 전체 아이템 로드 (매번 직접 조회)"""
     try:
         supabase = get_supabase()
         response = supabase.table(TABLE_ITEMS).select("*").execute()
 
-        _items_cache = {}
+        result: Dict[str, Dict[str, Any]] = {}
         for row in response.data:
-            name = (row.get("name") or "").strip()
-            if not name:
-                continue
-
-            raw_size = row.get("size")
-            try:
-                volume = int(raw_size) if raw_size is not None else 0
-            except (ValueError, TypeError):
-                volume = 0
-
-            _items_cache[name] = {
-                'name': name,
-                'price': row.get("price", ""),
-                'desc': row.get("description", ""),
-                'use_msg': row.get("use_script", ""),
-                'stat': row.get("change_stats", ""),
-                'value': row.get("change_value", ""),
-                'volume': max(0, volume),
-            }
-
-        _cache_time = time.time()
-        logger.info("아이템 캐시 로드 완료: %d개 아이템", len(_items_cache))
+            item = _row_to_item_dict(row)
+            if item:
+                result[item['name']] = item
+        return result
     except Exception as e:
-        logger.error("아이템 캐시 로드 실패: %s", e)
+        logger.error("아이템 목록 조회 실패: %s", e)
         raise
 
 
 def get_item_info(item_name: str) -> Optional[ItemInfo]:
-    """아이템 정보 조회 (캐시 사용). 입력은 strip·공백 정규화 후 정확/정규화 매칭."""
-    if not _is_cache_valid():
-        _load_items_cache()
-
+    """아이템 정보 조회 (매번 DB에서 직접 조회)"""
     if not item_name or not isinstance(item_name, str):
         return None
-    key = item_name.strip()
-    if key in _items_cache:
-        return _items_cache[key]
-    normalized = _normalize_item_name(item_name)
-    if not normalized:
+
+    try:
+        supabase = get_supabase()
+        key = item_name.strip()
+        response = (
+            supabase.table(TABLE_ITEMS)
+            .select("*")
+            .eq("name", key)
+            .limit(1)
+            .execute()
+        )
+        if response.data:
+            return _row_to_item_dict(response.data[0])
+
+        # 정규화 매칭 시도 (전체 조회 필요)
+        normalized = _normalize_item_name(item_name)
+        if not normalized:
+            return None
+        all_items = _fetch_all_items()
+        for name, info in all_items.items():
+            if _normalize_item_name(name) == normalized:
+                return info
         return None
-    for name, info in _items_cache.items():
-        if _normalize_item_name(name) == normalized:
-            return info
-    return None
-
-
-def refresh_cache() -> None:
-    """캐시 강제 새로고침"""
-    global _cache_time
-    _cache_time = 0
-    _load_items_cache()
+    except Exception as e:
+        logger.error("아이템 조회 실패 (name=%s): %s", item_name, e)
+        return None
 
 
 def list_shop_items() -> List[Dict[str, Any]]:
-    """구매 가능한 아이템 목록 (price가 숫자이고 양수인 것만, 비매품 제외). 이름 순 정렬."""
-    if not _is_cache_valid():
-        _load_items_cache()
+    """구매 가능한 아이템 목록 (매번 DB에서 직접 조회)"""
+    all_items = _fetch_all_items()
 
     result: List[Dict[str, Any]] = []
-    for name, info in _items_cache.items():
+    for name, info in all_items.items():
         p = parse_sellable_price(info.get("price"))
         if p is None:
             continue
