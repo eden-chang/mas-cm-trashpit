@@ -76,12 +76,26 @@ const SHAPES: Record<number, ShapePattern[]> = {
 };
 
 /**
- * 5칸 이상: 최대한 박스(직사각형) 형태로 자동 생성
- * 정사각형에 가까운 순서대로 정렬
+ * 세로 최대 MAX_SHAPE_ROWS 칸 제한으로 모양 자동 생성.
+ * 완전한 직사각형 + 나머지가 있는 채움 모양(마지막 행이 짧은 형태) 포함.
+ * 정사각형에 가까운 순서대로 정렬.
  */
+const MAX_SHAPE_ROWS = 4;
+
 function generateRectShapes(volume: number): ShapePattern[] {
   const shapes: ShapePattern[] = [];
-  for (let rows = 1; rows <= volume; rows++) {
+  const shapeKeys = new Set<string>();
+
+  const addShape = (shape: ShapePattern) => {
+    const key = JSON.stringify(shape);
+    if (!shapeKeys.has(key)) {
+      shapeKeys.add(key);
+      shapes.push(shape);
+    }
+  };
+
+  // 1) 완전한 직사각형 (세로 MAX_SHAPE_ROWS 이하)
+  for (let rows = 1; rows <= Math.min(volume, MAX_SHAPE_ROWS); rows++) {
     if (volume % rows !== 0) continue;
     const cols = volume / rows;
     const shape: ShapePattern = [];
@@ -90,8 +104,30 @@ function generateRectShapes(volume: number): ShapePattern[] {
         shape.push({ row: r, col: c });
       }
     }
-    shapes.push(shape);
+    addShape(shape);
   }
+
+  // 2) 채움 모양: 세로 2~MAX_SHAPE_ROWS행으로 왼쪽부터 채움 (마지막 행이 짧을 수 있음)
+  for (let targetRows = 2; targetRows <= MAX_SHAPE_ROWS; targetRows++) {
+    const cols = Math.ceil(volume / targetRows);
+    if (volume % cols === 0) continue; // 이미 직사각형으로 생성됨
+
+    const shape: ShapePattern = [];
+    let remaining = volume;
+    for (let r = 0; remaining > 0; r++) {
+      const cellsInRow = Math.min(cols, remaining);
+      for (let c = 0; c < cellsInRow; c++) {
+        shape.push({ row: r, col: c });
+      }
+      remaining -= cellsInRow;
+    }
+
+    const maxRow = Math.max(...shape.map(p => p.row)) + 1;
+    if (maxRow <= MAX_SHAPE_ROWS) {
+      addShape(shape);
+    }
+  }
+
   // 정사각형에 가까운 순서대로 정렬
   shapes.sort((a, b) => {
     const aR = Math.max(...a.map(p => p.row)) + 1;
