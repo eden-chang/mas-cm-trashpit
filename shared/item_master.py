@@ -1,8 +1,11 @@
 """아이템 마스터 조회 모듈 (Supabase 버전)
 
 items 테이블에서 아이템 정보를 조회하고, 사용 가능·여유공간 여부를 판별합니다.
+전체 아이템을 메모리에 캐시하여 DB 호출을 최소화합니다.
 """
 
+import os
+import time
 import logging
 from typing import Optional, Union
 
@@ -10,6 +13,13 @@ from .supabase_client import get_supabase, TABLE_ITEMS
 from .models import ItemInfo
 
 logger = logging.getLogger(__name__)
+
+# 아이템 마스터 캐시 TTL (초) — 아이템은 거의 변경되지 않으므로 5분
+_ITEM_CACHE_TTL = int(os.getenv("CACHE_TTL_ITEMS", "300"))
+
+# 캐시 저장소
+_item_cache: dict[str, ItemInfo] = {}
+_cache_loaded_at: float = 0.0
 
 
 def _row_to_item_info(row: dict) -> ItemInfo:
@@ -46,43 +56,56 @@ def _row_to_item_info(row: dict) -> ItemInfo:
     )
 
 
-def get_item_info(item_name: str) -> Optional[ItemInfo]:
-    """아이템 정보 조회 (PK 조회)"""
-    if not item_name or not item_name.strip():
-        return None
+def _ensure_cache() -> None:
+    """캐시가 없거나 만료되었으면 전체 아이템을 로드"""
+    global _item_cache, _cache_loaded_at
 
-    try:
-        supabase = get_supabase()
-        response = (
-            supabase.table(TABLE_ITEMS)
-            .select("*")
-            .eq("name", item_name.strip())
-            .limit(1)
-            .execute()
-        )
-        if response.data:
-            return _row_to_item_info(response.data[0])
-        return None
-    except Exception as e:
-        logger.exception("아이템 조회 실패 (name=%s): %s", item_name, e)
-        return None
+    now = time.time()
+    if _item_cache and (now - _cache_loaded_at) < _ITEM_CACHE_TTL:
+        return
 
-
-def get_all_item_infos() -> list[ItemInfo]:
-    """전체 아이템 목록 조회"""
     try:
         supabase = get_supabase()
         response = supabase.table(TABLE_ITEMS).select("*").execute()
-        result: list[ItemInfo] = []
+        new_cache: dict[str, ItemInfo] = {}
         for row in response.data:
             try:
-                result.append(_row_to_item_info(row))
+                info = _row_to_item_info(row)
+                new_cache[info.name] = info
             except ValueError as e:
                 logger.warning("아이템 행 스킵: %s", e)
-        return result
+
+        _item_cache = new_cache
+        _cache_loaded_at = now
+        logger.debug("아이템 마스터 캐시 로드 완료: %d건", len(_item_cache))
     except Exception as e:
-        logger.exception("아이템 목록 조회 실패: %s", e)
-        return []
+        logger.exception("아이템 마스터 캐시 로드 실패: %s", e)
+        # 기존 캐시가 있으면 만료되더라도 계속 사용 (stale-while-error)
+        if not _item_cache:
+            raise
+
+
+def invalidate_item_cache() -> None:
+    """아이템 마스터 캐시 수동 무효화"""
+    global _item_cache, _cache_loaded_at
+    _item_cache = {}
+    _cache_loaded_at = 0.0
+    logger.info("아이템 마스터 캐시 무효화")
+
+
+def get_item_info(item_name: str) -> Optional[ItemInfo]:
+    """아이템 정보 조회 (캐시에서 조회, 없으면 전체 로드)"""
+    if not item_name or not item_name.strip():
+        return None
+
+    _ensure_cache()
+    return _item_cache.get(item_name.strip())
+
+
+def get_all_item_infos() -> list[ItemInfo]:
+    """전체 아이템 목록 조회 (캐시에서 반환)"""
+    _ensure_cache()
+    return list(_item_cache.values())
 
 
 def is_usable(item_info: ItemInfo) -> bool:

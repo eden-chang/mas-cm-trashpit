@@ -125,11 +125,14 @@ export default function App() {
     loadCharacters();
   }, []);
 
-  // Polling for external changes
+  // Polling for external changes (탭이 보일 때만 폴링)
   useEffect(() => {
     if (!selectedCharacterData) return;
 
     const pollForChanges = async () => {
+      // 탭이 비활성 상태면 폴링 건너뜀 (서버 부하 절감)
+      if (document.hidden) return;
+
       try {
         const data = await getCharacter(selectedCharacterData.name);
         if (data.updated_at && lastKnownUpdate && data.updated_at !== lastKnownUpdate) {
@@ -148,7 +151,17 @@ export default function App() {
     };
 
     const interval = setInterval(pollForChanges, POLL_INTERVAL);
-    return () => clearInterval(interval);
+
+    // 탭이 다시 보이면 즉시 폴링 1회 실행
+    const onVisibilityChange = () => {
+      if (!document.hidden) pollForChanges();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, [selectedCharacterData?.name, lastKnownUpdate, hasUnsavedChanges]);
 
   const loadCharacters = async () => {

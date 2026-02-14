@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 # 환경변수로 조정 가능: CACHE_TTL, CACHE_TTL_ITEMS, CACHE_TTL_CHARACTERS
 CACHE_TTL = int(os.getenv("CACHE_TTL", "60"))  # 기본 1분
 CACHE_TTL_ITEMS = int(os.getenv("CACHE_TTL_ITEMS", "300"))  # 아이템 마스터는 5분 (자주 변경되지 않음)
-CACHE_TTL_CHARACTERS = int(os.getenv("CACHE_TTL_CHARACTERS", "15"))  # 캐릭터는 15초 (자주 변경됨)
+CACHE_TTL_CHARACTERS = int(os.getenv("CACHE_TTL_CHARACTERS", "30"))  # 캐릭터는 30초 (폴링 주기와 동일)
 
 # 메모리 캐시 저장소
 _cache: dict[str, tuple[Any, float]] = {}

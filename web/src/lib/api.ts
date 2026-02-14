@@ -8,7 +8,9 @@ const BASE = typeof import.meta.env !== 'undefined' && import.meta.env.VITE_API_
   ? String(import.meta.env.VITE_API_BASE_URL).replace(/\/$/, '')
   : '';
 
-const REQUEST_TIMEOUT_MS = 15_000;
+const REQUEST_TIMEOUT_MS = 30_000;
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 1_000;
 
 function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${BASE}${endpoint}`;
@@ -47,6 +49,34 @@ function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   });
 }
 
+/** 재시도 가능한 GET 요청 (타임아웃·네트워크 오류 시 자동 재시도) */
+async function requestWithRetry<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  let lastError: ApiError | undefined;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await request<T>(endpoint, options);
+    } catch (err) {
+      lastError = err instanceof ApiError ? err : new ApiError('알 수 없는 오류', 0);
+
+      // 4xx 클라이언트 오류는 재시도하지 않음
+      if (lastError.status >= 400 && lastError.status < 500) {
+        throw lastError;
+      }
+
+      // 마지막 시도였으면 에러 throw
+      if (attempt >= MAX_RETRIES) {
+        throw lastError;
+      }
+
+      // 재시도 전 대기 (지수 백오프)
+      await new Promise((r) => setTimeout(r, RETRY_DELAY_MS * (attempt + 1)));
+    }
+  }
+
+  throw lastError!;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -59,7 +89,7 @@ export class ApiError extends Error {
 
 /** 전체 캐릭터 목록 */
 export async function getCharacters(): Promise<CharacterSummary[]> {
-  const data = await request<unknown>('/api/characters');
+  const data = await requestWithRetry<unknown>('/api/characters');
   if (!Array.isArray(data)) {
     throw new ApiError(
       typeof (data as { error?: string })?.error === 'string'
@@ -73,10 +103,10 @@ export async function getCharacters(): Promise<CharacterSummary[]> {
 
 /** 캐릭터 상세 (가방·주변·여유공간·배치 포함) */
 export function getCharacter(name: string): Promise<ApiCharacter> {
-  return request<ApiCharacter>(`/api/character/${encodeURIComponent(name)}`);
+  return requestWithRetry<ApiCharacter>(`/api/character/${encodeURIComponent(name)}`);
 }
 
-/** 가방·주변·여유공간·배치 일괄 업데이트 */
+/** 가방·주변·여유공간·배치 일괄 업데이트 (POST는 재시도하지 않음) */
 export function updateBag(
   name: string,
   payload: {
