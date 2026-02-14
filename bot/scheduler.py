@@ -1,8 +1,8 @@
 """스케줄러 모듈
 
 Phase 5.1 문서에 따른 주변 아이템 자동 삭제 스케줄러
-- 매일 0시: 주변 아이템 삭제 + 알림
-- 매일 23시: 삭제 1시간 전 경고 알림
+- 매일 18시: 주변 아이템 삭제 + 알림
+- 매일 17시: 삭제 1시간 전 경고 알림
 """
 
 import sys
@@ -40,7 +40,7 @@ def _format_items(items: list[dict]) -> str:
 
 
 def cleanup_nearby_items():
-    """주변 아이템 자동 삭제 (매일 0시 KST 실행)"""
+    """주변 아이템 자동 삭제 (매일 18시 KST 실행)"""
     logger.info("[%s] 주변 아이템 자동 삭제 시작", datetime.now().isoformat())
 
     try:
@@ -76,7 +76,7 @@ def cleanup_nearby_items():
 
 
 def warn_before_cleanup():
-    """삭제 1시간 전 경고 알림 (매일 23시 KST 실행)"""
+    """삭제 1시간 전 경고 알림 (매일 17시 KST 실행)"""
     logger.info("[%s] 주변 아이템 삭제 경고 시작", datetime.now().isoformat())
 
     try:
@@ -108,25 +108,25 @@ def get_scheduler() -> BackgroundScheduler:
     if _scheduler is None:
         _scheduler = BackgroundScheduler(timezone=KST)
 
-        # 매일 0시 KST: 주변 아이템 삭제
+        # 매일 18시 KST: 주변 아이템 삭제
         _scheduler.add_job(
             cleanup_nearby_items,
-            CronTrigger(hour=0, minute=0, timezone=KST),
+            CronTrigger(hour=18, minute=0, timezone=KST),
             id="cleanup_nearby",
             replace_existing=True,
         )
 
-        # 매일 23시 KST: 삭제 경고
+        # 매일 17시 KST: 삭제 경고
         _scheduler.add_job(
             warn_before_cleanup,
-            CronTrigger(hour=23, minute=0, timezone=KST),
+            CronTrigger(hour=17, minute=0, timezone=KST),
             id="warn_cleanup",
             replace_existing=True,
         )
 
         logger.info("스케줄러 작업 등록 완료 (KST 기준)")
-        logger.info("  - cleanup_nearby: 매일 0시 KST")
-        logger.info("  - warn_cleanup: 매일 23시 KST")
+        logger.info("  - cleanup_nearby: 매일 18시 KST")
+        logger.info("  - warn_cleanup: 매일 17시 KST")
 
     return _scheduler
 

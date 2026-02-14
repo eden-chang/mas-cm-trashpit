@@ -231,6 +231,7 @@ def update_stat(char_name: str, stat_name: str, delta: int) -> bool:
 
     stat_name은 character dict 키(health, strength, luck, hp, points)와 동일해야 하며,
     stat_change 명령과 inventory_service 간 계약이다.
+    HP 업데이트 시 최대 HP(체력 * 10) 이상으로 올라가지 않도록 클램프한다.
     """
     char = get_character(char_name)
     if not char:
@@ -249,6 +250,16 @@ def update_stat(char_name: str, stat_name: str, delta: int) -> bool:
     new_value = current + delta
     if stat_name.lower() == "points":
         new_value = max(0, new_value)
+
+    # HP 상한 클램프: 최대 HP = 체력(health/con) * 10
+    if stat_name.lower() == "hp" and delta > 0:
+        health_raw = char.get("health", 0) or 0
+        try:
+            max_hp = max(0, int(health_raw) * 10)
+        except (TypeError, ValueError):
+            max_hp = 0
+        if max_hp > 0 and new_value > max_hp:
+            new_value = max_hp
 
     try:
         supabase = get_supabase()

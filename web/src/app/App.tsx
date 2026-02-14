@@ -26,24 +26,29 @@ import type {
 const POLL_INTERVAL = 30000;
 
 /**
- * KST 기준 다음 자정(0시)까지 남은 초 계산
- * 주변 아이템은 KST 0시에 리셋됨
+ * KST 기준 다음 18시까지 남은 초 계산
+ * 주변 아이템은 KST 18시에 리셋됨
  */
-function getSecondsUntilMidnightKST(): number {
+function getSecondsUntilResetKST(): number {
   const now = new Date();
-  
+
   // KST는 UTC+9
   const KST_OFFSET = 9 * 60; // 분 단위
-  
+
   // 현재 시간을 KST로 변환 (UTC 시간 + 9시간)
   const nowKST = new Date(now.getTime() + (KST_OFFSET + now.getTimezoneOffset()) * 60 * 1000);
-  
-  // KST 기준 다음 자정 계산
-  const midnightKST = new Date(nowKST);
-  midnightKST.setHours(24, 0, 0, 0); // 다음 날 0시
-  
+
+  // KST 기준 다음 18시 계산
+  const resetKST = new Date(nowKST);
+  resetKST.setHours(18, 0, 0, 0);
+
+  // 이미 18시가 지났으면 다음 날 18시
+  if (nowKST >= resetKST) {
+    resetKST.setDate(resetKST.getDate() + 1);
+  }
+
   // 남은 밀리초를 초로 변환
-  const diffMs = midnightKST.getTime() - nowKST.getTime();
+  const diffMs = resetKST.getTime() - nowKST.getTime();
   return Math.max(0, Math.floor(diffMs / 1000));
 }
 
@@ -70,7 +75,7 @@ export default function App() {
   const [isLoadingCharacterData, setIsLoadingCharacterData] = useState(false);
 
   // UI state
-  const [timeRemaining, setTimeRemaining] = useState(getSecondsUntilMidnightKST);
+  const [timeRemaining, setTimeRemaining] = useState(getSecondsUntilResetKST);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -88,13 +93,13 @@ export default function App() {
   const [lastKnownUpdate, setLastKnownUpdate] = useState<string | null>(null);
   const [hasExternalChange, setHasExternalChange] = useState(false);
 
-  // Timer effect - KST 기준 다음 0시까지 카운트다운
+  // Timer effect - KST 기준 다음 18시까지 카운트다운
   useEffect(() => {
     const interval = setInterval(() => {
       setTimeRemaining((prev) => {
         if (prev <= 1) {
-          // 자정이 지나면 다시 계산 (24시간 또는 실제 남은 시간)
-          return getSecondsUntilMidnightKST();
+          // 18시가 지나면 다시 계산 (다음 18시까지 남은 시간)
+          return getSecondsUntilResetKST();
         }
         return prev - 1;
       });
