@@ -1229,9 +1229,9 @@ function BagTabContent({ gridSize, timeRemaining, formatTime, timerLabel, charac
         </div>
         
         {/* 그리드 컨테이너 */}
-        <div 
-          className="rounded-lg p-3 md:p-4 overflow-x-auto"
-          style={{ backgroundColor: 'var(--bg-mid)', border: '1px solid var(--bg-light)' }}
+        <div
+          className="rounded-lg p-3 md:p-4 overflow-auto"
+          style={{ backgroundColor: 'var(--bg-mid)', border: '1px solid var(--bg-light)', maxHeight: '50vh' }}
         >
           <div 
             className="mx-auto relative" 
@@ -1317,7 +1317,7 @@ function BagTabContent({ gridSize, timeRemaining, formatTime, timerLabel, charac
       </section>
 
       {/* 중간: 여유공간 + 주변 (가방과 버리기 사이 공간 채움) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0 overflow-hidden relative z-10">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0 overflow-y-auto relative z-10">
         {/* 여유공간 */}
         <section className="flex flex-col min-h-0 space-y-2" aria-labelledby="misc-heading">
           <div className="flex items-center justify-between shrink-0">
