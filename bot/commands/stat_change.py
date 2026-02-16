@@ -58,11 +58,30 @@ def handle(status_id: str, user: str, args: list[str]) -> str | None:
     except (TypeError, ValueError):
         current = 0
 
+    # HP 클램프 계산: 0 ≤ HP ≤ 최대 HP(체력 * 10)
+    new_value = current + delta
+    if stat_key == "hp":
+        health_raw = character.get("health", 0) or 0
+        try:
+            max_hp = max(0, int(health_raw) * 10)
+        except (TypeError, ValueError):
+            max_hp = 0
+        if max_hp > 0:
+            new_value = min(new_value, max_hp)
+        new_value = max(0, new_value)
+
+    actual_delta = new_value - current
+    if actual_delta == 0:
+        display = STAT_KEY_TO_DISPLAY_NAME.get(stat_key, stat_key)
+        if delta > 0:
+            return f"@{user} {josa(display, '이/가')} 이미 최대치({new_value})입니다."
+        else:
+            return f"@{user} {josa(display, '이/가')} 이미 최소치(0)입니다."
+
     if not update_stat(char_name, stat_key, delta):
         logger.error(f"stat_change: update_stat 실패 user={user} char={char_name} stat={stat_key} delta={delta}")
         return f"@{user} 스탯 변경에 실패했습니다."
 
-    new_value = current + delta
     display = STAT_KEY_TO_DISPLAY_NAME.get(stat_key, stat_key)
     logger.info(f"stat_change: 성공 user={user} char={char_name} {display} {current}→{new_value}")
     return f"@{user} {josa(display, '이/가')} {current} → {new_value}로 변경되었습니다."

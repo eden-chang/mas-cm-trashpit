@@ -251,15 +251,16 @@ def update_stat(char_name: str, stat_name: str, delta: int) -> bool:
     if stat_name.lower() == "points":
         new_value = max(0, new_value)
 
-    # HP 상한 클램프: 최대 HP = 체력(health/con) * 10
-    if stat_name.lower() == "hp" and delta > 0:
+    # HP 클램프: 0 ≤ HP ≤ 최대 HP(체력 * 10)
+    if stat_name.lower() == "hp":
         health_raw = char.get("health", 0) or 0
         try:
             max_hp = max(0, int(health_raw) * 10)
         except (TypeError, ValueError):
             max_hp = 0
-        if max_hp > 0 and new_value > max_hp:
-            new_value = max_hp
+        if max_hp > 0:
+            new_value = min(new_value, max_hp)
+        new_value = max(0, new_value)
 
     try:
         supabase = get_supabase()
