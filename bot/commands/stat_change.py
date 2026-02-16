@@ -78,8 +78,8 @@ def handle(status_id: str, user: str, args: list[str]) -> str | None:
         else:
             return f"@{user} {josa(display, '이/가')} 이미 최소치(0)입니다."
 
-    if not update_stat(char_name, stat_key, delta):
-        logger.error(f"stat_change: update_stat 실패 user={user} char={char_name} stat={stat_key} delta={delta}")
+    if not update_stat(char_name, stat_key, actual_delta):
+        logger.error(f"stat_change: update_stat 실패 user={user} char={char_name} stat={stat_key} delta={actual_delta}")
         return f"@{user} 스탯 변경에 실패했습니다."
 
     display = STAT_KEY_TO_DISPLAY_NAME.get(stat_key, stat_key)
