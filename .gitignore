@@ -1,5 +1,9 @@
-# 환경 변수 (비밀키 포함)
+# Environment variables (secrets)
 .env
+.env.*
+!.env.example
+*.pem
+*.key
 
 # Python
 __pycache__/
@@ -26,14 +30,14 @@ wheels/
 .claude/
 .cursor/
 
-# 가상환경
+# Virtual environments
 .venv/
 venv/
 ENV/
 env/
 
-# 구글 인증 (민감 정보)
-credentials.json
+# Google credentials (sensitive)
+credentials*.json
 token.json
 
 # IDE
@@ -43,7 +47,7 @@ token.json
 *.swo
 *~
 
-# 로그
+# Logs
 *.log
 logs/
 
@@ -51,15 +55,23 @@ logs/
 .DS_Store
 Thumbs.db
 
-# 캐시
+# Caches
 .cache/
 *.cache
 
 # Node.js
 node_modules/
-# 프론트엔드 src/lib 제외 (Python lib/만 무시)
+# Keep the frontend src/lib (only ignore the Python lib/ above)
 !/web/src/lib/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+
+# Data dumps written by scripts/fetch_all_data.py
+characters_full_data.json
+items_full_data.json
+
+# Test / tooling caches
+.pytest_cache/
+.ruff_cache/
