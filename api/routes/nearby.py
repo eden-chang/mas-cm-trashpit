@@ -2,6 +2,7 @@
 
 from flask import Blueprint, jsonify, request
 
+from api.auth import require_character_token
 from api.services.sheet_service import get_character_by_name
 from api.services.inventory_service import enrich_items, move_nearby_to_bag
 
@@ -9,6 +10,7 @@ bp = Blueprint("nearby", __name__, url_prefix="/api")
 
 
 @bp.route("/nearby/<name>")
+@require_character_token
 def get_nearby(name: str):
     """주변 아이템 조회"""
     char = get_character_by_name(name)
@@ -22,6 +24,7 @@ def get_nearby(name: str):
 
 
 @bp.route("/nearby/<name>/move", methods=["POST"])
+@require_character_token
 def move_to_bag(name: str):
     """주변 아이템을 가방으로 이동"""
     char = get_character_by_name(name)

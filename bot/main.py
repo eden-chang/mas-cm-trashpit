@@ -42,6 +42,7 @@ from bot.commands import (
     defense,
     shoot,
     dodge,
+    bag_link,
 )
 from bot.scheduler import start_scheduler, stop_scheduler
 from bot.logger import get_logger
@@ -69,7 +70,11 @@ ALLOWED_PREFIXES = frozenset({
     "hp", "체력", "근력", "행운",
     "상점", "설명", "구매", "상태 확인", "상태확인",
     "발사", "공격", "방어", "회피",
+    "가방 링크", "가방링크",
 })
+
+# 응답에 개인 자격 증명이 포함되므로 요청 공개 범위와 관계없이 DM으로만 답하는 명령어
+DIRECT_REPLY_COMMANDS = frozenset({"bag_link"})
 
 # 명령어 패턴 (give_point는 give_item보다 먼저 — 더 구체적인 패턴 우선)
 PATTERNS = {
@@ -94,6 +99,7 @@ PATTERNS = {
     "defense": re.compile(r"\[방어\]"),
     "shoot": re.compile(r"\[발사\]"),
     "dodge": re.compile(r"\[회피\]"),
+    "bag_link": re.compile(r"\[가방 ?링크\]"),
 }
 
 # 명령어 핸들러 매핑
@@ -118,6 +124,7 @@ HANDLERS = {
     "defense": defense.handle,
     "shoot": shoot.handle,
     "dodge": dodge.handle,
+    "bag_link": bag_link.handle,
 }
 
 
@@ -167,6 +174,8 @@ def on_notification(notification: dict):
 
     cmd_type, args = result
     logger.command_received(user, cmd_type, args)
+    if cmd_type in DIRECT_REPLY_COMMANDS:
+        visibility = "direct"
 
     # 핸들러 실행 (반환값이 있으면 reply로 전송)
     handler = HANDLERS.get(cmd_type)

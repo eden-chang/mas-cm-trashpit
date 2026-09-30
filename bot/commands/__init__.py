@@ -15,6 +15,7 @@ from . import (
     defense,
     shoot,
     dodge,
+    bag_link,
 )
 
 __all__ = [
@@ -33,4 +34,5 @@ __all__ = [
     "defense",
     "shoot",
     "dodge",
+    "bag_link",
 ]

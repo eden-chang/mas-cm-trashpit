@@ -1,18 +1,19 @@
 """관리자 API 엔드포인트 (Phase 3.3)
 
-캐시 관리 및 시스템 상태 확인용.
-TODO: 실제 운영 시 인증 추가 필요
+캐시 관리 및 시스템 상태 확인용. 모든 요청에 Authorization: Bearer <ADMIN_API_TOKEN> 필요.
 """
 
 import logging
 
 from flask import Blueprint, jsonify
 
+from api.auth import check_admin_token
 from shared.cache import invalidate_cache, get_cache_stats, cleanup_expired
 
 logger = logging.getLogger(__name__)
 
 bp = Blueprint("admin", __name__, url_prefix="/api/admin")
+bp.before_request(check_admin_token)
 
 
 @bp.route("/cache/stats")

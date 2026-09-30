@@ -2,6 +2,7 @@
 
 from flask import Blueprint, jsonify, request
 
+from api.auth import require_character_token
 from api.services.sheet_service import get_character_by_name, update_bag_items, update_inventory
 from api.services.inventory_service import enrich_items, calculate_total_volume
 from api.services.item_service import get_item_info
@@ -10,6 +11,7 @@ bp = Blueprint("bag", __name__, url_prefix="/api")
 
 
 @bp.route("/bag/<name>")
+@require_character_token
 def get_bag(name: str):
     """가방 아이템 조회"""
     char = get_character_by_name(name)
@@ -31,6 +33,7 @@ def get_bag(name: str):
 
 
 @bp.route("/bag/<name>", methods=["POST"])
+@require_character_token
 def update_bag(name: str):
     """가방·주변·여유공간 전체 인벤토리 업데이트 (동기화용)"""
     char = get_character_by_name(name)

@@ -2,6 +2,7 @@
 
 from flask import Blueprint, jsonify
 
+from api.auth import require_character_token
 from api.services.sheet_service import get_character_by_name
 from api.services.inventory_service import enrich_items, calculate_total_volume
 
@@ -16,6 +17,7 @@ def _bag_stats(char):
 
 
 @bp.route("/character/<name>")
+@require_character_token
 def get_character(name: str):
     """캐릭터 전체 정보 조회"""
     char = get_character_by_name(name)

@@ -56,3 +56,12 @@ CACHE_TTL = get_int("CACHE_TTL", 3600)
 API_HOST = get_env("API_HOST", "0.0.0.0")
 API_PORT = get_int("API_PORT", 5000)
 CORS_ORIGINS = get_env("CORS_ORIGINS", "*").split(",")
+
+# ============================================================
+# Inventory links ([가방 링크] 명령어)
+# ============================================================
+# API와 동일한 서명 키 (32자 이상). 비어 있으면 명령어가 비활성화됨
+INVENTORY_LINK_SECRET = get_env("INVENTORY_LINK_SECRET", "")
+# 인벤토리 웹 주소 (예: https://inventory.example.com)
+INVENTORY_WEB_URL = get_env("INVENTORY_WEB_URL", "")
+INVENTORY_LINK_TTL_DAYS = get_int("INVENTORY_LINK_TTL_DAYS", 30)
