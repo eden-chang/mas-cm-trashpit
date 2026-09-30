@@ -83,7 +83,7 @@ class TestPerformance:
             elapsed_time = time.time() - start_time
             
             assert elapsed_time < 1.0, f"사용 명령어가 너무 느립니다: {elapsed_time:.3f}초"
-            assert "사용했습니다" in result
+            assert "- 사과 사용" in result
     
     def test_bulk_acquire_operations(self, mock_character, mock_item):
         """대량 획득 작업 처리 성능"""

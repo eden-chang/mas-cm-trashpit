@@ -3,7 +3,7 @@
 
 import sys
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -49,69 +49,90 @@ class TestParseSellablePrice:
         assert item_service.parse_sellable_price([]) is None
 
 
+def _items_to_rows(items: dict) -> list[dict]:
+    """item_service 딕셔너리 형태를 Supabase items 행 형태로 변환"""
+    return [
+        {
+            "name": info["name"],
+            "price": info["price"],
+            "description": info.get("desc", ""),
+            "size": info.get("volume", 0),
+        }
+        for info in items.values()
+    ]
+
+
+class _FakeQuery:
+    """supabase.table(...).select(...).eq(...).limit(...).execute() 체인 흉내"""
+
+    def __init__(self, rows: list[dict]) -> None:
+        self._rows = rows
+
+    def select(self, *_args: object) -> "_FakeQuery":
+        return self
+
+    def eq(self, column: str, value: object) -> "_FakeQuery":
+        return _FakeQuery([r for r in self._rows if r.get(column) == value])
+
+    def limit(self, count: int) -> "_FakeQuery":
+        return _FakeQuery(self._rows[:count])
+
+    def execute(self) -> MagicMock:
+        return MagicMock(data=self._rows)
+
+
+def _fake_supabase(items: dict) -> MagicMock:
+    client = MagicMock()
+    client.table.side_effect = lambda _name: _FakeQuery(_items_to_rows(items))
+    return client
+
+
 class TestGetItemInfoNormalization:
-    """get_item_info 이름 정규화 동작 테스트 (캐시 mock)"""
+    """get_item_info 이름 정규화 동작 테스트 (Supabase mock)"""
 
     @pytest.fixture
-    def mock_cache(self) -> dict:
+    def items(self) -> dict:
         return {
-            "힐링 포션": {
-                "name": "힐링 포션",
-                "price": 50,
-                "desc": "체력 회복",
-                "volume": 1,
-            },
-            "마나 포션": {
-                "name": "마나 포션",
-                "price": "비매품",
-                "desc": "마나",
-                "volume": 0,
-            },
+            "힐링 포션": {"name": "힐링 포션", "price": 50, "desc": "체력 회복", "volume": 1},
+            "마나 포션": {"name": "마나 포션", "price": "비매품", "desc": "마나", "volume": 0},
         }
 
-    def test_exact_match(self, mock_cache: dict) -> None:
-        with (
-            patch.object(item_service, "_items_cache", mock_cache),
-            patch.object(item_service, "_is_cache_valid", return_value=True),
-        ):
+    def test_exact_match(self, items: dict) -> None:
+        with patch.object(item_service, "get_supabase", return_value=_fake_supabase(items)):
             info = item_service.get_item_info("힐링 포션")
             assert info is not None
             assert info["name"] == "힐링 포션"
+            assert info["volume"] == 1
 
-    def test_normalized_match_extra_spaces(self, mock_cache: dict) -> None:
-        with (
-            patch.object(item_service, "_items_cache", mock_cache),
-            patch.object(item_service, "_is_cache_valid", return_value=True),
-        ):
+    def test_normalized_match_extra_spaces(self, items: dict) -> None:
+        with patch.object(item_service, "get_supabase", return_value=_fake_supabase(items)):
             info = item_service.get_item_info("  힐링  포션  ")
             assert info is not None
             assert info["name"] == "힐링 포션"
 
-    def test_not_found_returns_none(self, mock_cache: dict) -> None:
-        with (
-            patch.object(item_service, "_items_cache", mock_cache),
-            patch.object(item_service, "_is_cache_valid", return_value=True),
-        ):
+    def test_not_found_returns_none(self, items: dict) -> None:
+        with patch.object(item_service, "get_supabase", return_value=_fake_supabase(items)):
             assert item_service.get_item_info("없는아이템") is None
             assert item_service.get_item_info("") is None
 
+    def test_db_error_returns_none(self) -> None:
+        with patch.object(item_service, "get_supabase", side_effect=RuntimeError("down")):
+            assert item_service.get_item_info("힐링 포션") is None
+
 
 class TestListShopItemsSort:
-    """list_shop_items 정렬 및 parse_sellable_price 사용 테스트 (캐시 mock)"""
+    """list_shop_items 정렬 및 parse_sellable_price 사용 테스트 (Supabase mock)"""
 
     @pytest.fixture
-    def mock_cache_unsorted(self) -> dict:
+    def items_unsorted(self) -> dict:
         return {
             "바나나": {"name": "바나나", "price": 10, "desc": "", "volume": 0},
             "사과": {"name": "사과", "price": "비매품", "desc": "", "volume": 0},
             "감": {"name": "감", "price": 5, "desc": "", "volume": 0},
         }
 
-    def test_returns_only_sellable_sorted_by_name(self, mock_cache_unsorted: dict) -> None:
-        with (
-            patch.object(item_service, "_items_cache", mock_cache_unsorted),
-            patch.object(item_service, "_is_cache_valid", return_value=True),
-        ):
+    def test_returns_only_sellable_sorted_by_name(self, items_unsorted: dict) -> None:
+        with patch.object(item_service, "get_supabase", return_value=_fake_supabase(items_unsorted)):
             result = item_service.list_shop_items()
             names = [x["name"] for x in result]
             assert names == ["감", "바나나"]

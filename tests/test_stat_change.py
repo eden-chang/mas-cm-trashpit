@@ -116,12 +116,11 @@ def test_handle_success_luck_display_name(mock_get_char, mock_update):
 
 @patch("bot.commands.stat_change.update_stat", return_value=True)
 @patch("bot.commands.stat_change.get_character_by_mastodon_id")
-def test_handle_delta_zero_calls_update_and_returns_consistent_message(mock_get_char, mock_update):
-    """delta가 0인 경우 [hp/0]: update_stat 호출, 응답에 '10 → 10으로 변경되었습니다' 형태"""
+def test_handle_delta_zero_skips_update(mock_get_char, mock_update):
+    """delta가 0인 경우 [hp/0]: 입력 단계에서 거부하고 update_stat을 호출하지 않는다"""
     mock_get_char.return_value = {"name": "테스트캐", "hp": 10}
     result = stat_change.handle("sid", "user", ["hp", "0"])
-    mock_update.assert_called_once_with("테스트캐", "hp", 0)
+    mock_update.assert_not_called()
     assert result is not None
     assert "@user" in result
-    assert "HP" in result
-    assert "10" in result and "변경되었습니다" in result
+    assert "0이 아닌 숫자" in result

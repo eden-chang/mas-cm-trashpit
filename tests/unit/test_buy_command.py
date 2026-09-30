@@ -44,7 +44,7 @@ class TestBuyHandle:
         info = {"name": "사과", "price": 10, "desc": "", "volume": 0}
         with patch("bot.commands.buy.get_item_info", return_value=info):
             result = buy.handle("status-1", "testuser", ["사과", "0"])
-            assert "구매 개수는 1 이상" in result
+            assert "구매 개수는 1개 이상" in result
 
     def test_quantity_over_999_returns_message(self) -> None:
         info = {"name": "사과", "price": 10, "desc": "", "volume": 0}
@@ -52,13 +52,16 @@ class TestBuyHandle:
             result = buy.handle("status-1", "testuser", ["사과", "1000"])
             assert "최대 999개" in result
 
-    def test_quantity_empty_string_returns_message(self) -> None:
-        """개수 인자가 빈 문자열이면 '개수는 숫자로…' 메시지."""
+    def test_quantity_empty_string_defaults_to_one(self) -> None:
+        """개수 인자가 빈 문자열이면 생략한 것으로 보고 1개로 처리한다."""
         info = {"name": "사과", "price": 10, "desc": "", "volume": 0}
-        with patch("bot.commands.buy.get_item_info", return_value=info):
+        with (
+            patch("bot.commands.buy.get_item_info", return_value=info),
+            patch("bot.commands.buy.get_character_by_mastodon_id", return_value=None),
+        ):
             result = buy.handle("status-1", "testuser", ["사과", ""])
             assert result is not None
-            assert "개수" in result and ("숫자" in result or "입력" in result)
+            assert "등록된 캐릭터를 찾을 수 없습니다" in result
 
     def test_no_character_returns_message(self) -> None:
         info = {"name": "사과", "price": 10, "desc": "", "volume": 0}

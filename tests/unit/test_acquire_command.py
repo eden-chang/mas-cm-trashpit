@@ -88,7 +88,7 @@ class TestAcquireCommand:
             
             result = acquire.handle("status-1", "test_user", ["이상한물건"])
             
-            assert "존재하지 않는 아이템" in result
+            assert "아이템이 존재하지 않습니다" in result
     
     def test_acquire_empty_item_name_error(self, mock_character):
         """빈 아이템명 입력"""

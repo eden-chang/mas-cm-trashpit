@@ -106,7 +106,7 @@ class TestEdgeCases:
         with patch('bot.services.character_service.get_character_by_mastodon_id', return_value=mock_character), \
              patch('bot.commands.use.use_item', return_value=result_first):
             result = use.handle("status-1", "test_user", ["사과"])
-            assert "사용했습니다" in result
+            assert "- 사과 사용" in result
         
         # 두 번째 사용: 실패 (소지하지 않음)
         result_second = UseItemResult(
@@ -166,7 +166,7 @@ class TestEdgeCases:
         with patch('bot.services.character_service.get_character_by_mastodon_id', return_value=mock_character), \
              patch('bot.commands.acquire.get_item_info', return_value=None):
             result = acquire.handle("status-1", "test_user", ["APPLE"])
-            assert "존재하지 않는 아이템" in result
+            assert "아이템이 존재하지 않습니다" in result
     
     def test_zero_quantity_item(self, mock_character):
         """수량이 0인 아이템 버리기 시도"""

@@ -45,9 +45,9 @@ class TestUseCommand:
              patch('bot.commands.use.use_item', return_value=result_obj):
             result = use.handle("status-1", "test_user", ["회복 물약"])
             
-            assert "사용했습니다" in result
-            assert "회복 물약" in result
-            assert "남은 수량: 2" in result
+            assert "효과: 체력 +7" in result
+            assert "- 회복 물약 사용" in result
+            assert "- 남은 수량 2개" in result
     
     def test_use_item_success_last_item(self, mock_character):
         """마지막 아이템 사용"""
@@ -64,8 +64,8 @@ class TestUseCommand:
              patch('bot.commands.use.use_item', return_value=result_obj):
             result = use.handle("status-1", "test_user", ["사과"])
             
-            assert "사용했습니다" in result
-            assert "남은 수량" not in result or "0" not in result
+            assert "- 사과 사용" in result
+            assert "남은 수량" not in result
     
     def test_use_item_not_in_inventory(self, mock_character):
         """소지하지 않은 아이템 사용 시도"""

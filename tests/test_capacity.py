@@ -27,9 +27,11 @@ class TestCalculateCapacity:
             (11, 60),
             (13, 60),
             (15, 60),
-            (16, 80),
-            (18, 80),
-            (20, 80),
+            (16, 60),
+            (20, 60),
+            (49, 60),
+            (50, 200),
+            (100, 200),
         ],
     )
     def test_valid_strength_ranges(self, strength: int, expected: int) -> None:
@@ -38,8 +40,8 @@ class TestCalculateCapacity:
 
     def test_default_for_out_of_range(self) -> None:
         assert calculate_capacity(0) == 20
-        assert calculate_capacity(21) == 20
-        assert calculate_capacity(100) == 20
+        assert calculate_capacity(-3) == 20
+        assert calculate_capacity("abc") == 20  # type: ignore[arg-type]
 
 
 class TestParseInventory:

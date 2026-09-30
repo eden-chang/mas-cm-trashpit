@@ -15,6 +15,13 @@ from bot.services.use_item_service import use_item, UseItemResult
 class TestUseItemServiceLocationMapping:
     """RPC 호출 시 봇 location(nearby) → DB 컬럼명(around) 매핑 검증"""
 
+    @pytest.fixture(autouse=True)
+    def _isolate_db(self):
+        """트랜잭션 경로를 강제하고 캐릭터 조회·남은 수량 조회를 DB 없이 처리"""
+        with patch("bot.services.use_item_service._transaction_available", True),              patch("bot.services.use_item_service.get_character",
+                   return_value={"name": "테스트캐", "health": 10, "hp": 50}),              patch("bot.services.use_item_service.get_item_count", return_value=0):
+            yield
+
     def test_use_item_calls_rpc_with_around_when_item_in_nearby(self):
         """find_item_location이 'nearby' 반환 시 use_item_with_transaction에 location='around' 전달"""
         with patch("bot.services.use_item_service.find_item_location", return_value="nearby"), \

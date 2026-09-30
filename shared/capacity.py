@@ -10,7 +10,7 @@ from .parser import parse_inventory
 def calculate_capacity(strength: int) -> int:
     """근력 기반 가방 용량 계산
 
-    근력 1~5: 20, 6~10: 40, 11~15: 60, 16~20: 80, 그 외: 20(기본값)
+    근력 1~5: 20, 6~10: 40, 11~49: 60, 50 이상: 200, 그 외: 20(기본값)
     """
     return get_bag_capacity(strength)
 

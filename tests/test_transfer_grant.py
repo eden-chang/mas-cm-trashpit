@@ -94,9 +94,9 @@ class TestTransferHandleItem:
         with patch("bot.commands.transfer.get_item_info") as mock_item:
             mock_item.return_value = {"volume": 1}
             with patch(
-                "bot.commands.transfer.remove_item_by_priority"
+                "bot.commands.transfer.remove_item_by_priority_detailed"
             ) as mock_remove:
-                mock_remove.return_value = 0
+                mock_remove.return_value = (0, [])
                 out = transfer.handle_item(
                     "status-1", "user", ["없는아이템", "수신자"]
                 )
@@ -148,7 +148,7 @@ class TestTransferHandlePoint:
         mock_by_mastodon.return_value = {"name": "송신자", "points": 5}
         mock_get_char.return_value = {"name": "수신자"}
         out = transfer.handle_point("status-1", "user", ["10", "수신자"])
-        assert "포인트가 부족합니다" in out
+        assert "소지금이 부족합니다" in out
         assert "5" in out
 
 

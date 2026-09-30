@@ -4,66 +4,61 @@ import pytest
 
 from shared.models import ItemInfo
 from shared.item_master import (
-    record_to_item_info,
+    _row_to_item_info,
     is_usable,
     is_misc_item,
 )
 
 
-class TestRecordToItemInfo:
-    """record_to_item_info 검증"""
+def _row(**overrides: object) -> dict:
+    row = {
+        "name": "반지",
+        "price": "70",
+        "description": "은반지",
+        "use_script": "반지가 빛난다.",
+        "change_stats": "근력",
+        "change_value": "10",
+        "size": 0,
+    }
+    row.update(overrides)
+    return row
 
-    def test_valid_record_returns_item_info(self) -> None:
-        record = {
-            "아이템명": "반지",
-            "가격": 70,
-            "설명": "은반지",
-            "사용문구": "반지가 빛난다.",
-            "스탯": "근력",
-            "수치": "10",
-            "부피": "0",
-        }
-        info = record_to_item_info(record)
+
+class TestRowToItemInfo:
+    """items 테이블 행 → ItemInfo 변환 검증"""
+
+    def test_valid_row_returns_item_info(self) -> None:
+        info = _row_to_item_info(_row())
         assert info.name == "반지"
         assert info.price == 70
+        assert info.use_message == "반지가 빛난다."
+        assert info.stat == "근력"
+        assert info.value == "10"
         assert info.volume == 0
 
     def test_empty_name_raises_value_error(self) -> None:
-        record = {"아이템명": "", "가격": 0, "설명": "", "사용문구": "", "스탯": "", "수치": "", "부피": "0"}
-        with pytest.raises(ValueError, match="아이템명이 없습니다"):
-            record_to_item_info(record)
+        with pytest.raises(ValueError, match="아이템명이 비어 있습니다"):
+            _row_to_item_info(_row(name=""))
 
     def test_whitespace_only_name_raises_value_error(self) -> None:
-        record = {"아이템명": "   ", "가격": 0, "설명": "", "사용문구": "", "스탯": "", "수치": "", "부피": "1"}
-        with pytest.raises(ValueError, match="아이템명이 없습니다"):
-            record_to_item_info(record)
+        with pytest.raises(ValueError, match="아이템명이 비어 있습니다"):
+            _row_to_item_info(_row(name="   "))
 
     def test_non_sellable_price(self) -> None:
-        record = {
-            "아이템명": "아몬드",
-            "가격": "비매품",
-            "설명": "",
-            "사용문구": "먹는다",
-            "스탯": "체력",
-            "수치": "-(1d6+3)",
-            "부피": "0",
-        }
-        info = record_to_item_info(record)
+        info = _row_to_item_info(_row(name="아몬드", price="비매품", change_value="-(1d6+3)"))
         assert info.price == "비매품"
         assert info.value == "-(1d6+3)"
-        assert info.volume == 0
+
+    def test_invalid_price_defaults_to_zero(self) -> None:
+        assert _row_to_item_info(_row(price="abc")).price == 0
 
     def test_negative_volume_clamped_to_zero(self) -> None:
-        record = {
-            "아이템명": "버그아이템",
-            "가격": 0,
-            "설명": "",
-            "사용문구": "",
-            "스탯": "사용 불가",
-            "수치": "",
-            "부피": "-1",
-        }
-        info = record_to_item_info(record)
+        assert _row_to_item_info(_row(size=-1)).volume == 0
+
+    def test_missing_optional_fields_become_empty(self) -> None:
+        info = _row_to_item_info({"name": "돌"})
+        assert info.description == ""
+        assert info.use_message == ""
         assert info.volume == 0
 
 
