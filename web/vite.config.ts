@@ -15,8 +15,6 @@ export default defineConfig({
       output: {
         manualChunks: (id) => {
           if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) return 'react'
-          if (id.includes('node_modules/@radix-ui') || id.includes('node_modules/@emotion')) return 'ui'
-          if (id.includes('node_modules/recharts') || id.includes('node_modules/d3-')) return 'charts'
         },
       },
     },
