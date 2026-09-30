@@ -1,8 +1,25 @@
-# trashpit-figma - 참고용 디자인
+# Trashpit Web
 
-이 폴더는 **참고용** 파일입니다.
+React + TypeScript + Vite frontend for the Trashpit inventory system. It shows a character's bag as a drag-and-drop grid, along with the free space and nearby zones, and saves layout changes through the Flask API.
 
-웹 프론트엔드 Phase 4를 진행할 때 이 디자인을 따라 구현하면 됩니다.
+## Scripts
 
-- **docs/Phase 4 - 웹 프론트엔드/** 문서의 4.5~4.8을 참고하여 연동 계획에 따라 진행
-- 이 폴더의 `App.tsx`, `BagTab.tsx`, `theme.css` 등을 참고하여 `web/`에 구현
+```bash
+npm ci
+npm run dev          # dev server; /api is proxied to http://localhost:5000
+npm run build        # production build into dist/
+npm run preview      # serve the production build locally
+npm run fonts:woff2  # convert fonts/*.ttf to .woff2
+```
+
+## Configuration
+
+Copy `.env.example` to `.env` and set `VITE_API_BASE_URL` when the API is hosted on another origin (for example, the deployed Railway API). Leave it empty in development to use the Vite proxy.
+
+## Layout
+
+- `src/app/App.tsx`: character selection, polling for changes, save/refresh
+- `src/app/components/BagTab.tsx`: bag grid, item shapes, drag-and-drop
+- `src/app/components/bag/`: grid constants, item chips, dialogs, drop zones
+- `src/lib/`: API client, API types, and API-to-UI data transforms
+- `vercel.json`: SPA rewrite for Vercel deployment
