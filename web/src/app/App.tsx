@@ -1,12 +1,13 @@
 import BagTab from '@/app/components/BagTab';
+import type { InventoryState } from '@/app/components/BagTab';
 import { RefreshCw, Cloud, Menu, X, Search, Loader2, AlertTriangle, Package } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  getCharacters,
   getCharacter,
   updateBag,
   ApiError,
 } from '@/lib/api';
+import { getTokenCharacterName } from '@/lib/accessToken';
 import {
   transformCharacterData,
   gridItemsToApiItems,
@@ -15,12 +16,14 @@ import {
   freeItemsToApiItems,
 } from '@/lib/transform';
 import type {
-  CharacterSummary,
   ApiCharacter,
   Item,
   NearbyItem,
   FreeItem,
 } from '@/lib/types';
+
+const ACCESS_LINK_REQUIRED_MESSAGE =
+  '개인 링크로만 접속할 수 있어요. 봇에게 [가방 링크]를 멘션해 링크를 받아 주세요.';
 
 // 동기화 폴링 간격 (30초)
 const POLL_INTERVAL = 30000;
@@ -168,16 +171,22 @@ export default function App() {
     setIsLoadingCharacters(true);
     setCharacterError(null);
     try {
-      const data = await getCharacters();
-      const displayChars: CharacterDisplay[] = data.map((char: CharacterSummary) => ({
+      const tokenCharacter = getTokenCharacterName();
+      if (!tokenCharacter) {
+        setCharacters([]);
+        setCharacterError(ACCESS_LINK_REQUIRED_MESSAGE);
+        return;
+      }
+      const char = await getCharacter(tokenCharacter);
+      const displayChars: CharacterDisplay[] = [{
         name: char.name,
         capacity: char.bag_used,
         maxCapacity: char.bag_capacity,
         gridSize: char.bag_capacity,
-        strength: Math.ceil(char.bag_capacity / 10), // Estimate from capacity
+        strength: char.strength ?? Math.ceil(char.bag_capacity / 10),
         hp: char.hp,
         maxHp: char.max_hp,
-      }));
+      }];
       setCharacters(displayChars);
       // Auto-select first character
       if (displayChars.length > 0 && selectedCharacterIndex === null) {
@@ -220,7 +229,7 @@ export default function App() {
         capacity: data.bag_used,
         maxCapacity: data.bag_capacity,
         gridSize: data.bag_capacity,
-        strength: data.strength,
+        strength: data.strength ?? Math.ceil(data.bag_capacity / 10),
         hp: data.hp,
         maxHp: data.max_hp,
       };
@@ -286,10 +295,11 @@ export default function App() {
   };
 
   const handleInventoryChange = useCallback(
-    (state: { items: Item[]; nearbyItems: NearbyItem[]; freeItems: FreeItem[] }) => {
+    (state: InventoryState) => {
       setCurrentItems(state.items);
       setCurrentNearbyItems(state.nearbyItems);
-      setCurrentFreeItems(state.freeItems);
+      // 여유공간 아이템은 부피를 차지하지 않음
+      setCurrentFreeItems(state.freeItems.map((item): FreeItem => ({ ...item, volume: 0 })));
       if (!isSyncingRef.current) {
         setHasUnsavedChanges(true);
       }

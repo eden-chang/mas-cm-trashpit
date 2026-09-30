@@ -3,6 +3,7 @@
  */
 
 import type { CharacterSummary, ApiCharacter } from '@/lib/types';
+import { getAccessToken } from '@/lib/accessToken';
 
 const BASE = typeof import.meta.env !== 'undefined' && import.meta.env.VITE_API_BASE_URL != null
   ? String(import.meta.env.VITE_API_BASE_URL).replace(/\/$/, '')
@@ -17,12 +18,14 @@ function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
+  const token = getAccessToken();
   return fetch(url, {
+    ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { 'X-Character-Token': token } : {}),
       ...options.headers,
     },
-    ...options,
     signal: controller.signal,
   }).then(async (res) => {
     let data: unknown;
